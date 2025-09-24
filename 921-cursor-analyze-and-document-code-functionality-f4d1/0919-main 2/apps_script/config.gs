@@ -42,6 +42,9 @@ const CONFIG = {
       'my_rating_change_cb','opp_rating_change_cb','my_pregame_cb','opp_pregame_cb',
       'my_pregame_last','my_delta_last','opp_pregame_last','opp_delta_last',
       'ply_count','end_reason','move_timestamps_ds',
+      'result_message',
+      'my_country','my_membership','my_default_tab','my_post_move_action',
+      'opp_country','opp_membership','opp_default_tab','opp_post_move_action',
       'archive_name'
     ],
     GameOpsLog: [

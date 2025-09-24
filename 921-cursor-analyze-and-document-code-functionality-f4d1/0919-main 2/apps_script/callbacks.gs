@@ -11,6 +11,9 @@ function runCallbacksBatch() {
   var iMyDeltaCb = uidx('my_rating_change_cb'); var iOppDeltaCb = uidx('opp_rating_change_cb');
   var iMyPreCb = uidx('my_pregame_cb'); var iOppPreCb = uidx('opp_pregame_cb');
   var iPly = uidx('ply_count'); var iMoves = uidx('move_timestamps_ds');
+  var iResMsg = uidx('result_message');
+  var iMyCountry = uidx('my_country'); var iMyMember = uidx('my_membership'); var iMyTab = uidx('my_default_tab'); var iMyPost = uidx('my_post_move_action');
+  var iOppCountry = uidx('opp_country'); var iOppMember = uidx('opp_membership'); var iOppTab = uidx('opp_default_tab'); var iOppPost = uidx('opp_post_move_action');
   var vals = uni.getRange(2, 1, last - 1, uni.getLastColumn()).getValues();
   var batch = [];
   for (var r=0; r<vals.length && batch.length < 30; r++) {
@@ -42,6 +45,15 @@ function runCallbacksBatch() {
       var mv = parsed.moveTimestampsDs || '';
       var row = uni.getRange(b2.rowIndex, 1, 1, uni.getLastColumn()).getValues()[0];
       row[iMyDeltaCb] = cbChange; row[iOppDeltaCb] = oppCbChange; row[iMyPreCb] = myPre; row[iOppPreCb] = oppPre; row[iPly] = ply; row[iMoves] = mv;
+      if (iResMsg >= 0) row[iResMsg] = parsed.resultMessage || '';
+      if (iMyCountry >= 0) row[iMyCountry] = parsed.myCountry || '';
+      if (iMyMember >= 0) row[iMyMember] = parsed.myMembership || '';
+      if (iMyTab >= 0) row[iMyTab] = parsed.myDefaultTab || '';
+      if (iMyPost >= 0) row[iMyPost] = parsed.myPostMove || '';
+      if (iOppCountry >= 0) row[iOppCountry] = parsed.oppCountry || '';
+      if (iOppMember >= 0) row[iOppMember] = parsed.oppMembership || '';
+      if (iOppTab >= 0) row[iOppTab] = parsed.oppDefaultTab || '';
+      if (iOppPost >= 0) row[iOppPost] = parsed.oppPostMove || '';
       uni.getRange(b2.rowIndex, 1, 1, row.length).setValues([row]);
       applied++;
     }

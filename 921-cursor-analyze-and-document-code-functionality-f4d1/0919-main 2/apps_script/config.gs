@@ -15,7 +15,6 @@ const CONFIG = {
     // Games and GameMeta removed in unified-only mode
     GameOpsLog: 'GameOpsLog',
     UnifiedGames: 'UnifiedGames',
-    CallbackStats: 'CallbackStats',
     // Aggregations and live stats removed
     Logs: 'Logs',
     RatingState: 'RatingState',
@@ -28,7 +27,8 @@ const CONFIG = {
   HEADERS: {
     Archives: [
       'year', 'month', 'archive_url', 'status', 'etag', 'last_modified', 'last_checked',
-      'schema_version', 'finalized', 'last_url_seen'
+      'schema_version', 'finalized', 'last_url_seen',
+      'written_count', 'callback_applied_count', 'finalized_at'
     ],
     // Games and GameMeta headers removed in unified-only mode
     UnifiedGames: [
@@ -46,15 +46,6 @@ const CONFIG = {
     ],
     GameOpsLog: [
       'timestamp', 'url', 'operation', 'status', 'http_code', 'details_json'
-    ],
-    CallbackStats: [
-      'url', 'id', 'is_live',
-      'my_color',
-      'my_username', 'my_rating', 'my_rating_change', 'my_pregame_rating', 'my_country', 'my_membership', 'my_default_tab', 'my_post_move_action',
-      'opp_username', 'opp_rating', 'opp_rating_change', 'opp_pregame_rating', 'opp_country', 'opp_membership', 'opp_default_tab', 'opp_post_move_action',
-      'game_end_reason', 'result_message', 'end_time_epoch', 'ply_count',
-      'base_time_ds', 'increment_ds', 'move_timestamps_ds',
-      'fetched_at'
     ],
     // Ratings/Stats/Live headers removed
     Logs: ['timestamp', 'level', 'code', 'message', 'context_json'],

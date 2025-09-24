@@ -29,11 +29,9 @@ function rebuildUnifiedForMonthKey(monthKey) {
   var ss = getOrCreateGamesSpreadsheet();
   var gamesSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games);
   var metaSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.GameMeta, CONFIG.HEADERS.GameMeta);
-  var cbSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.CallbackStats, CONFIG.HEADERS.CallbackStats);
   var unifiedSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.UnifiedGames, CONFIG.HEADERS.UnifiedGames);
   ensureSheetHeader(gamesSheet, CONFIG.HEADERS.Games);
   ensureSheetHeader(metaSheet, CONFIG.HEADERS.GameMeta);
-  ensureSheetHeader(cbSheet, CONFIG.HEADERS.CallbackStats);
 
   // Index helpers
   function headerIdx(sheet) { return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]; }
@@ -78,28 +76,8 @@ function rebuildUnifiedForMonthKey(monthKey) {
     }
   }
 
-  // Read CallbackStats for join (minimal fields)
-  var cLast = cbSheet.getLastRow();
+  // CallbackStats is deprecated; callback deltas are applied in-place into Unified
   var cbByUrl = {};
-  if (cLast >= 2) {
-    var cHeader = headerIdx(cbSheet);
-    function cIdx(n){ return findIdx(cHeader, n); }
-    var cu = cIdx('url'); var cPly = cIdx('ply_count'); var cMv = cIdx('move_timestamps_ds');
-    var cMyDelta = cIdx('my_rating_change'); var cOppDelta = cIdx('opp_rating_change');
-    var cMyPre = cIdx('my_pregame_rating'); var cOppPre = cIdx('opp_pregame_rating');
-    var cVals = cbSheet.getRange(2, 1, cLast - 1, cbSheet.getLastColumn()).getValues();
-    for (var j = 0; j < cVals.length; j++) {
-      var u2 = cVals[j][cu]; if (!u2) continue;
-      cbByUrl[String(u2)] = {
-        ply: (cPly >= 0 ? cVals[j][cPly] : ''),
-        movesDs: (cMv >= 0 ? cVals[j][cMv] : ''),
-        myDelta: (cMyDelta >= 0 ? cVals[j][cMyDelta] : ''),
-        oppDelta: (cOppDelta >= 0 ? cVals[j][cOppDelta] : ''),
-        myPre: (cMyPre >= 0 ? cVals[j][cMyPre] : ''),
-        oppPre: (cOppPre >= 0 ? cVals[j][cOppPre] : '')
-      };
-    }
-  }
 
   // Build unified rows (upsert by URL)
   var unifiedHeader = CONFIG.HEADERS.UnifiedGames;

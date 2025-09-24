@@ -60,7 +60,16 @@ function _ingestActiveMonthImpl() {
       var chunkSize = 200;
       for (var off = 0; off < newRows.length; off += chunkSize) {
         var chunk = computeLastBasedForRows(newRows.slice(off, off + chunkSize), archNameActive);
-        if (chunk.length) { upsertByUrl(unifiedSheet, chunk); appendOpsLog(archiveUrl, 'write_unified_chunk', 'ok', '', { rows: chunk.length }); }
+        if (chunk.length) { upsertByUrl(unifiedSheet, chunk); appendOpsLog(archiveUrl, 'write_unified_chunk', 'ok', '', { rows: chunk.length });
+          try {
+            var ah = archivesSheet.getRange(1,1,1,archivesSheet.getLastColumn()).getValues()[0];
+            function aidx(n){ for (var i=0;i<ah.length; i++) if (String(ah[i])===n) return i; return -1; }
+            var iw = aidx('written_count'); if (iw >= 0) {
+              var cur = archivesSheet.getRange(rowNumber, iw+1).getValue();
+              archivesSheet.getRange(rowNumber, iw+1).setValue(Number(cur||0) + Number(chunk.length||0));
+            }
+          } catch (e) {}
+        }
         // Advance cursor and counts immediately per chunk for safe resume
         if (lastUrlCol > 0) { var lastUrlInChunk = chunk[chunk.length - 1][0]; archivesSheet.getRange(rowNumber, lastUrlCol).setValue(lastUrlInChunk); }
         archivesSheet.getRange(rowNumber, 7).setValue(new Date());
@@ -143,6 +152,14 @@ function _fullBackfillImpl() {
       var sheetName = getUnifiedSheetNameForMonthKey(archName);
       var unifiedSheet = getOrCreateSheet(gamesSS, sheetName, CONFIG.HEADERS.UnifiedGames); ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.UnifiedGames);
       writeRowsChunked(unifiedSheet, computeLastBasedForRows(newRows, archName));
+      try {
+        var ah2 = archivesSheet.getRange(1,1,1,archivesSheet.getLastColumn()).getValues()[0];
+        function aidx2(n){ for (var i=0;i<ah2.length; i++) if (String(ah2[i])===n) return i; return -1; }
+        var iw2 = aidx2('written_count'); if (iw2 >= 0) {
+          var cur2 = archivesSheet.getRange(target.idx, iw2+1).getValue();
+          archivesSheet.getRange(target.idx, iw2+1).setValue(Number(cur2||0) + Number(newRows.length||0));
+        }
+      } catch (e) {}
     }
 
     // Finalize this archive (mark inactive + finalized)
@@ -215,6 +232,11 @@ function _finalizePreviousActiveMonth(allRows, activeRow) {
   } else { archivesSheet.getRange(rowNumber, 7).setValue(now); archivesSheet.getRange(rowNumber, 11).setValue(String(response.error || response.code)); }
   archivesSheet.getRange(rowNumber, 4).setValue('inactive');
   if (finalizedCol > 0) archivesSheet.getRange(rowNumber, finalizedCol).setValue(true);
+  try {
+    var ah3 = archivesSheet.getRange(1,1,1,archivesSheet.getLastColumn()).getValues()[0];
+    function aidx3(n){ for (var i=0;i<ah3.length; i++) if (String(ah3[i])===n) return i; return -1; }
+    var ifin = aidx3('finalized_at'); if (ifin >= 0) archivesSheet.getRange(rowNumber, ifin+1).setValue(new Date());
+  } catch (e) {}
 }
 
 // removed _recheckInactiveArchivesImpl as part of simplification

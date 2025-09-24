@@ -1,92 +1,74 @@
 function runCallbacksBatch() {
-  var gamesSS = getOrCreateGamesSpreadsheet();
-  var cbSS = getOrCreateCallbacksSpreadsheet();
-  var games = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games);
-  var cb = getOrCreateSheet(cbSS, CONFIG.SHEET_NAMES.CallbackStats, CONFIG.HEADERS.CallbackStats);
-  // Ensure header schema is up-to-date (migrate white_/black_ -> my_/opp_)
-  ensureSheetHeader(cb, CONFIG.HEADERS.CallbackStats);
-  var lastRow = games.getLastRow();
-  if (lastRow < 2) return;
-  var values = games.getRange(2, 1, lastRow - 1, games.getLastColumn()).getValues();
-
-  // Build a small batch of candidates not yet in CallbackStats
-  var existing = buildCallbackUrlIndex(cb);
+  // Fetch a small batch of missing callbacks and write results directly into Unified sheet columns
+  var ss = getOrCreateGamesSpreadsheet();
+  var monthKey = getActiveMonthKey(); if (!monthKey) return 0;
+  var uniName = getUnifiedSheetNameForMonthKey(monthKey);
+  var uni = getOrCreateSheet(ss, uniName, CONFIG.HEADERS.UnifiedGames);
+  var last = uni.getLastRow(); if (last < 2) return 0;
+  var uh = uni.getRange(1, 1, 1, uni.getLastColumn()).getValues()[0];
+  function uidx(n){ for (var i=0;i<uh.length;i++) if (String(uh[i])===n) return i; return -1; }
+  var iUrl = uidx('url');
+  var iMyDeltaCb = uidx('my_rating_change_cb'); var iOppDeltaCb = uidx('opp_rating_change_cb');
+  var iMyPreCb = uidx('my_pregame_cb'); var iOppPreCb = uidx('opp_pregame_cb');
+  var iPly = uidx('ply_count'); var iMoves = uidx('move_timestamps_ds');
+  var vals = uni.getRange(2, 1, last - 1, uni.getLastColumn()).getValues();
   var batch = [];
-  for (var i = 0; i < values.length && batch.length < 30; i++) {
-    var url = values[i][0];
-    if (!url || existing.has(url)) continue;
-    var id = extractIdFromUrl(url);
-    if (!id) continue;
-    // Validate ID is numeric-like to avoid accidental date/time strings from Sheets
-    if (!/^\d+$/.test(String(id))) continue;
+  for (var r=0; r<vals.length && batch.length < 30; r++) {
+    var url = vals[r][iUrl]; if (!url) continue;
+    var have = (vals[r][iMyDeltaCb]!=='' && vals[r][iMyDeltaCb]!==null && vals[r][iMyDeltaCb]!==undefined);
+    if (have) continue;
+    var id = extractIdFromUrl(url); if (!id || !/^\d+$/.test(String(id))) continue;
     var type = inferTypeFromUrl(url);
-    batch.push({ url: url, type: type, id: id });
+    batch.push({ url: url, type: type, id: id, rowIndex: 2 + r });
   }
-  if (!batch.length) return;
-
-  // Parallel fetch callbacks
+  if (!batch.length) return 0;
   var reqs = [];
-  for (var j = 0; j < batch.length; j++) {
-    var b = batch[j];
-    var endpoint = b.type === 'daily' ? callbackDailyGameUrl(b.id) : callbackLiveGameUrl(b.id);
+  for (var j=0;j<batch.length;j++) {
+    var b = batch[j]; var endpoint = b.type === 'daily' ? callbackDailyGameUrl(b.id) : callbackLiveGameUrl(b.id);
     reqs.push({ url: endpoint, method: 'get', muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'ChessSheets/1.0 (AppsScript)' } });
   }
   var responses = UrlFetchApp.fetchAll(reqs);
-
-  var outRows = [];
-  for (var k = 0; k < responses.length; k++) {
-    var b2 = batch[k];
-    var resp = responses[k];
-    var code = 0;
-    try { code = resp.getResponseCode(); } catch (e) { code = 0; }
+  var applied = 0;
+  for (var k=0;k<responses.length;k++) {
+    var b2 = batch[k]; var resp = responses[k]; var code = 0; try { code = resp.getResponseCode(); } catch (e) { code = 0; }
     if (code >= 200 && code < 300) {
-      var json = {};
-      try { json = JSON.parse(resp.getContentText() || '{}'); } catch (e) { json = {}; }
+      var json = {}; try { json = JSON.parse(resp.getContentText() || '{}'); } catch (e) { json = {}; }
       var parsed = parseCallbackIdentity(json, b2);
       var cbChange = (parsed.myExactChange === '' || parsed.myExactChange === null || parsed.myExactChange === undefined) ? '' : Number(parsed.myExactChange);
       var oppCbChange = (parsed.oppExactChange === '' || parsed.oppExactChange === null || parsed.oppExactChange === undefined) ? '' : Number(parsed.oppExactChange);
-
-      outRows.push([
-        b2.url, b2.id, parsed.isLive,
-        parsed.myColor,
-        parsed.myUser, parsed.myRating, cbChange, (parsed.myRating === '' || cbChange === '' ? '' : Number(parsed.myRating) - Number(cbChange)), parsed.myCountry, parsed.myMembership, parsed.myDefaultTab, parsed.myPostMove,
-        parsed.oppUser, parsed.oppRating, oppCbChange, (parsed.oppRating === '' || oppCbChange === '' ? '' : Number(parsed.oppRating) - Number(oppCbChange)), parsed.oppCountry, parsed.oppMembership, parsed.oppDefaultTab, parsed.oppPostMove,
-        parsed.gameEndReason, parsed.resultMessage, parsed.endTime, parsed.plyCount,
-        parsed.baseTimeDs, parsed.incrementDs, parsed.moveTimestampsDs,
-        new Date()
-      ]);
-    } else if (code === 404) {
-      var total = CONFIG && CONFIG.HEADERS && CONFIG.HEADERS.CallbackStats ? CONFIG.HEADERS.CallbackStats.length : 0;
-      var row = [b2.url, b2.id];
-      while (row.length < Math.max(0, total - 1)) row.push('');
-      row.push(new Date());
-      outRows.push(row);
-    } else {
-      var endpoint2 = b2.type === 'daily' ? callbackDailyGameUrl(b2.id) : callbackLiveGameUrl(b2.id);
-      logEvent('WARN', 'CALLBACK_HTTP', 'Non-2xx from callback', {url: endpoint2, code: code});
+      var myPre = (parsed.myPregameRating === '' || parsed.myPregameRating === null || parsed.myPregameRating === undefined) ? '' : Number(parsed.myPregameRating);
+      var oppPre = (parsed.oppPregameRating === '' || parsed.oppPregameRating === null || parsed.oppPregameRating === undefined) ? '' : Number(parsed.oppPregameRating);
+      var ply = parsed.plyCount || '';
+      var mv = parsed.moveTimestampsDs || '';
+      var row = uni.getRange(b2.rowIndex, 1, 1, uni.getLastColumn()).getValues()[0];
+      row[iMyDeltaCb] = cbChange; row[iOppDeltaCb] = oppCbChange; row[iMyPreCb] = myPre; row[iOppPreCb] = oppPre; row[iPly] = ply; row[iMoves] = mv;
+      uni.getRange(b2.rowIndex, 1, 1, row.length).setValues([row]);
+      applied++;
     }
   }
-  if (outRows.length) writeRowsChunked(cb, outRows);
-  // Immediately augment GameMeta for these URLs
+  // Update Archives counters for active month
   try {
-    var urls = batch.map(function(b){ return b.url; });
-    augmentUnifiedForUrls(urls);
-  } catch (e) {}
-}
-
-function buildCallbackUrlIndex(cbSheet) {
-  var set = new Set();
-  try {
-    if (!cbSheet || typeof cbSheet.getLastRow !== 'function') return set;
-    var last = cbSheet.getLastRow();
-    if (last < 2) return set;
-    var vals = cbSheet.getRange(2, 1, last - 1, 1).getValues();
-    for (var i = 0; i < vals.length; i++) {
-      var u = vals[i][0]; if (u) set.add(u);
+    var archivesSS = getOrCreateArchivesSpreadsheet();
+    var aSheet = getOrCreateSheet(archivesSS, CONFIG.SHEET_NAMES.Archives, CONFIG.HEADERS.Archives);
+    var alast = aSheet.getLastRow(); if (alast >= 2) {
+      var ah = aSheet.getRange(1,1,1,aSheet.getLastColumn()).getValues()[0];
+      function aidx(n){ for (var i=0;i<ah.length;i++) if (String(ah[i])===n) return i; return -1; }
+      var iY = 0, iM = 1, iStatus = 3; var iCbCnt = aidx('callback_applied_count');
+      var av = aSheet.getRange(2,1,alast-1,aSheet.getLastColumn()).getValues();
+      for (var rr=0; rr<av.length; rr++) {
+        if (String(av[rr][iStatus]) === 'active') {
+          var rowIndex = 2 + rr; var cur = (iCbCnt>=0 ? av[rr][iCbCnt] : 0);
+          if (iCbCnt>=0) aSheet.getRange(rowIndex, iCbCnt+1).setValue(Number(cur||0) + Number(applied||0));
+          break;
+        }
+      }
     }
   } catch (e) {}
-  return set;
+  appendOpsLog('', 'callbacks_applied', 'ok', 200, { applied: applied });
+  return applied;
 }
+
+// buildCallbackUrlIndex removed (CallbackStats deprecated)
 
 function inferTypeFromUrl(url) {
   if (url.indexOf('/game/daily/') >= 0) return 'daily';

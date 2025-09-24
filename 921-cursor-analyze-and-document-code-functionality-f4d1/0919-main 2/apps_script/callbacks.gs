@@ -100,13 +100,19 @@ function runCallbacksForMonth(year, month, maxBatch) {
 
 function runCallbacksForAllMonths(maxBatchPerSheet) {
   var ss = getOrCreateGamesSpreadsheet();
-  var sheets = ss.getSheets(); var total = 0;
+  var sheets = ss.getSheets(); var total = 0; var monthKeys = [];
   for (var i=0;i<sheets.length;i++) {
     var name = sheets[i].getName();
     var m = name.match(/^Games_(\d{4})_(\d{2})$/);
-    if (!m) continue;
-    var monthKey = m[1] + '/' + m[2];
-    var res = processCallbacksForSheet(ss, monthKey, maxBatchPerSheet || 30);
+    if (!m) continue; monthKeys.push(m[1] + '/' + m[2]);
+  }
+  // sort keys oldest -> newest if configured
+  monthKeys.sort(function(a,b){ return Number(a.replace('/','')) - Number(b.replace('/','')); });
+  if (CONFIG && CONFIG.CALLBACKS && CONFIG.CALLBACKS.OLDEST_TO_NEWEST === false) monthKeys.reverse();
+  var limitSheets = (CONFIG && CONFIG.CALLBACKS && CONFIG.CALLBACKS.MAX_SHEETS_PER_RUN) ? Number(CONFIG.CALLBACKS.MAX_SHEETS_PER_RUN) : monthKeys.length;
+  var perBatch = (maxBatchPerSheet || (CONFIG && CONFIG.CALLBACKS && CONFIG.CALLBACKS.BATCH_SIZE ? Number(CONFIG.CALLBACKS.BATCH_SIZE) : 30));
+  for (var j=0; j<monthKeys.length && j<limitSheets; j++) {
+    var res = processCallbacksForSheet(ss, monthKeys[j], perBatch);
     total += res.applied;
   }
   appendOpsLog('', 'callbacks_applied_all', 'ok', 200, { applied_total: total });

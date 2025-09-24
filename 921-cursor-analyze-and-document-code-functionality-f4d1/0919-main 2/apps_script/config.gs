@@ -10,6 +10,11 @@ const CONFIG = {
   FOLDER_NAME: 'Chess Ingest',
   SPREADSHEET_NAME: 'Chess Ingest',
   SCHEMA_VERSION: '1.0.0',
+  CALLBACKS: {
+    BATCH_SIZE: 30,            // per-sheet callback fetch batch size
+    OLDEST_TO_NEWEST: true,    // process sheets oldest -> newest when bulk running
+    MAX_SHEETS_PER_RUN: 5      // limit sheets processed per all-months run
+  },
   SHEET_NAMES: {
     Archives: 'Archives',
     // Games and GameMeta removed in unified-only mode

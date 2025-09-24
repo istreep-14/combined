@@ -103,11 +103,20 @@ function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt) {
     // PGN headers
     var utcDate = extractPgnHeader(pgn, 'UTCDate');
     var utcTime = extractPgnHeader(pgn, 'UTCTime');
+    var tz = getDefaultTimezone();
+    var startMs = null;
     if (utcDate && utcTime) {
       var iso = utcDate.replace(/\./g,'-') + 'T' + utcTime + 'Z';
-      var ms = Date.parse(iso); if (!isNaN(ms)) startLocal = new Date(ms).toISOString();
+      var ms = Date.parse(iso); if (!isNaN(ms)) startMs = ms;
     }
-    if (endEpoch) { endLocal = new Date(Number(endEpoch)*1000).toISOString(); dateOnly = endLocal.slice(0,10); }
+    if (startMs !== null) {
+      startLocal = Utilities.formatDate(new Date(startMs), tz, 'yyyy-MM-dd HH:mm:ss');
+    }
+    if (endEpoch) {
+      var endMs = Number(endEpoch) * 1000;
+      endLocal = Utilities.formatDate(new Date(endMs), tz, 'yyyy-MM-dd HH:mm:ss');
+      dateOnly = Utilities.formatDate(new Date(endMs), tz, 'yyyy-MM-dd');
+    }
     var baseInc = parseTimeControl(g.time_control || '');
     // Identify "me" by configured USERNAME (case-insensitive)
     var meName = String(getDefaultUsername() || '').toLowerCase();
@@ -136,7 +145,7 @@ function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt) {
     var hubRow = projectFields('hub', {
       url: url, rated: g.rated || false, time_class: timeClass, rules: rules, format: format,
       end_time_epoch: endEpoch, start_time_local: startLocal, end_time_local: endLocal, date: dateOnly,
-      duration_seconds: (endEpoch && startLocal ? Math.round((Number(endEpoch)*1000 - Date.parse(startLocal))/1000) : ''),
+      duration_seconds: (endEpoch && startMs !== null ? Math.round((Number(endEpoch)*1000 - startMs)/1000) : ''),
       time_control: g.time_control || '', base_time: baseInc.base, increment: baseInc.inc, correspondence_time: baseInc.corr,
       my_username: myUser, my_color: meColor, my_rating_end: myRating, my_outcome: myOutcome,
       opp_username: oppUser, opp_color: (meColor===''?'':(meColor==='white'?'black':'white')), opp_rating_end: oppRating, opp_outcome: oppOutcome,

@@ -81,12 +81,13 @@ function fetchMonthArchive(username, year, month, etagOpt) {
   var code = resp.getResponseCode();
   var hdrs = resp.getAllHeaders();
   var etag = hdrs['ETag'] || hdrs['Etag'] || hdrs['etag'] || null;
-  if (code === 304) return { status:'not_modified', etag: etag || etagOpt };
-  if (code >= 200 && code < 300) return { status:'ok', etag: etag, json: JSON.parse(resp.getContentText() || '{}') };
+  var lastModified = hdrs['Last-Modified'] || hdrs['last-modified'] || null;
+  if (code === 304) return { status:'not_modified', etag: etag || etagOpt, lastModified: lastModified };
+  if (code >= 200 && code < 300) return { status:'ok', etag: etag, lastModified: lastModified, json: JSON.parse(resp.getContentText() || '{}') };
   return { status:'error', code: code };
 }
 
-function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt) {
+function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt, etagOpt, lastModOpt) {
   var outHub = []; var outAnalysis = [];
   var games = (archiveJson && archiveJson.games) || [];
   for (var i=0;i<games.length;i++) {
@@ -151,7 +152,7 @@ function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt) {
       opp_username: oppUser, opp_color: (meColor===''?'':(meColor==='white'?'black':'white')), opp_rating_end: oppRating, opp_outcome: oppOutcome,
       end_reason: deriveEndReason(g),
       archive_year: yearOpt ? String(yearOpt) : '', archive_month: monthOpt ? ((monthOpt<10?'0':'')+String(monthOpt)) : '',
-      archive_etag: '', archive_last_modified: '',
+      archive_etag: etagOpt || '', archive_last_modified: lastModOpt || '',
       archive_sig: simpleHash((g.time_control||'')+'|'+(g.rated?'1':'0')+'|'+(g.white&&g.white.username||'')+'|'+(g.black&&g.black.username||'')+'|'+(g.end_time||'')),
       pgn_sig: simpleHash((extractPgnHeader(pgn,'UTCDate')||'')+'|'+(extractPgnHeader(pgn,'UTCTime')||'')+'|'+(extractPgnHeader(pgn,'ECO')||'')),
       schema_version: STATE.SCHEMA_VERSION, ingest_version: STATE.INGEST_VERSION,
@@ -220,7 +221,7 @@ function writeSpoke(kind, rows) {
 function exportNewGames(username, year, month) {
   var res = fetchMonthArchive(username, year, month, null);
   if (res.status !== 'ok' || !res.json) return { written:0 };
-  var flat = flattenArchiveToRows(username, res.json, year, month);
+  var flat = flattenArchiveToRows(username, res.json, year, month, res.etag || '', res.lastModified || '');
   writeHub(flat.hub);
   writeSpoke('analysis', flat.analysis);
   // Queue exports for analysis and callback

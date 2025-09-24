@@ -14,7 +14,7 @@ const CONFIG = {
     Archives: 'Archives',
     // Games and GameMeta removed in unified-only mode
     GameOpsLog: 'GameOpsLog',
-    UnifiedGames: 'UnifiedGames',
+    Games: 'Games',
     // Aggregations and live stats removed
     Logs: 'Logs',
     RatingState: 'RatingState',
@@ -30,8 +30,8 @@ const CONFIG = {
       'schema_version', 'finalized', 'last_url_seen',
       'written_count', 'callback_applied_count', 'finalized_at'
     ],
-    // Games and GameMeta headers removed in unified-only mode
-    UnifiedGames: [
+    // Renamed unified monthly table to Games (Games_YYYY_MM)
+    Games: [
       'url','id','is_live','rated','time_class','rules','format',
       'date','start_time','end_time','end_time_epoch','duration_seconds',
       'time_control','base_time','increment','correspondence_time',

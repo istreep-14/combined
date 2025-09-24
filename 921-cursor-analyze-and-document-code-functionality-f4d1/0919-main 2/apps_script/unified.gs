@@ -163,8 +163,8 @@ function transformArchiveToUnifiedRows(meUsername, archiveJson) {
   return out;
 }
 
-function getUnifiedSheetNameForMonthKey(monthKey) {
-  return 'Unified_' + String(monthKey).replace('/', '_');
+function getGamesSheetNameForMonthKey(monthKey) {
+  return 'Games_' + String(monthKey).replace('/', '_');
 }
 
 function getActiveMonthKey() {
@@ -230,8 +230,8 @@ function augmentUnifiedForUrls(urls, monthKeyOpt) {
   var ss = getOrCreateGamesSpreadsheet();
   var monthKey = monthKeyOpt || getActiveMonthKey();
   if (!monthKey) return;
-  var sheetName = getUnifiedSheetNameForMonthKey(monthKey);
-  var uni = getOrCreateSheet(ss, sheetName, CONFIG.HEADERS.UnifiedGames);
+  var sheetName = getGamesSheetNameForMonthKey(monthKey);
+  var uni = getOrCreateSheet(ss, sheetName, CONFIG.HEADERS.Games);
   ensureSheetHeader(uni, CONFIG.HEADERS.UnifiedGames);
 
   var uh = uni.getRange(1, 1, 1, uni.getLastColumn()).getValues()[0];

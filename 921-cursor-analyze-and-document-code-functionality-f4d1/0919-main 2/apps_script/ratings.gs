@@ -240,3 +240,50 @@ function logPlayerStats(format, playerStatsJson) {
   } catch (e) {}
 }
 
+function runPlayerStatsSnapshot() {
+  try {
+    var username = getConfiguredUsername();
+    var res = fetchJsonWithEtag(playerStatsUrl(username), null);
+    if (res.status !== 'ok' || !res.json) return 0;
+    var json = res.json || {};
+    // Map Chess.com sections to normalized formats
+    var mapping = [
+      { key: 'chess_bullet', fmt: 'bullet' },
+      { key: 'chess_blitz', fmt: 'blitz' },
+      { key: 'chess_rapid', fmt: 'rapid' },
+      { key: 'chess_daily', fmt: 'daily' },
+      { key: 'chess960', fmt: 'live960' }
+    ];
+    var count = 0;
+    for (var i = 0; i < mapping.length; i++) {
+      var sec = json[mapping[i].key];
+      if (sec) { logPlayerStats(mapping[i].fmt, sec); count++; }
+    }
+    appendOpsLog('', 'player_stats_snapshot', 'ok', 200, { sections: count });
+    return count;
+  } catch (e) { logWarn('PLAYER_STATS_SNAP_FAIL', 'runPlayerStatsSnapshot failed', { error: String(e && e.message || e) }); return 0; }
+}
+
+function runLiveStatsMetaSnapshots() {
+  try {
+    var username = getConfiguredUsername();
+    var formats = ['bullet','blitz','rapid'];
+    var urls = [];
+    for (var i = 0; i < formats.length; i++) urls.push(liveStatsUrl(formats[i], username));
+    var results = fetchJsonBatchWithEtag(urls, []);
+    var logged = 0;
+    for (var j = 0; j < results.length; j++) {
+      var r = results[j];
+      if (r.status === 'ok' && r.json) { logLiveStatsMetaSnapshot(formats[j], r.json); logged++; }
+    }
+    appendOpsLog('', 'live_stats_meta_snapshot', 'ok', 200, { formats: logged });
+    return logged;
+  } catch (e) { logWarn('LIVE_STATS_SNAP_FAIL', 'runLiveStatsMetaSnapshots failed', { error: String(e && e.message || e) }); return 0; }
+}
+
+function runStatsSnapshots() {
+  var a = runPlayerStatsSnapshot();
+  var b = runLiveStatsMetaSnapshots();
+  return a + b;
+}
+

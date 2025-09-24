@@ -36,7 +36,7 @@ function _ingestActiveMonthImpl() {
     var allUnified = transformArchiveToUnifiedRows(username, json);
     // Stamp archive_name (YYYY/MM)
     var archNameActive = String(year) + '/' + ((parseInt(month,10) < 10 ? '0' : '') + String(parseInt(month,10)));
-    for (var si2 = 0; si2 < allUnified.length; si2++) { allUnified[si2][CONFIG.HEADERS.UnifiedGames.length - 1] = archNameActive; }
+    for (var si2 = 0; si2 < allUnified.length; si2++) { allUnified[si2][CONFIG.HEADERS.Games.length - 1] = archNameActive; }
     var urlIdxUnified = 0; // first column is URL
     var lastUrlCol = CONFIG.HEADERS.Archives.indexOf('last_url_seen') + 1;
     var idxActive = data.indexOf(row);
@@ -86,8 +86,8 @@ function _ingestActiveMonthImpl() {
 // removed count helpers
 
 function buildExistingUnifiedUrlIndex(gamesSS) {
-  var sheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.UnifiedGames, CONFIG.HEADERS.UnifiedGames);
-  ensureSheetHeader(sheet, CONFIG.HEADERS.UnifiedGames);
+  var sheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games);
+  ensureSheetHeader(sheet, CONFIG.HEADERS.Games);
   var lastRow = sheet.getLastRow();
   var index = new Set();
   if (lastRow < 2) return index;
@@ -142,9 +142,9 @@ function _fullBackfillImpl() {
 
     var json = resp.json || {}; var all = transformArchiveToUnifiedRows(username, json);
     var archName = String(year) + '/' + ((parseInt(month,10) < 10 ? '0' : '') + String(parseInt(month,10)));
-    for (var a = 0; a < all.length; a++) { all[a][CONFIG.HEADERS.UnifiedGames.length - 1] = archName; }
+    for (var a = 0; a < all.length; a++) { all[a][CONFIG.HEADERS.Games.length - 1] = archName; }
 
-    // Dedupe vs existing UnifiedGames
+    // Dedupe vs existing Games
     var existing = buildExistingUnifiedUrlIndex(gamesSS);
     var newRows = []; for (var r = 0; r < all.length; r++) { var u = all[r][0]; if (u && !existing.has(u)) newRows.push(all[r]); }
 
@@ -189,7 +189,7 @@ function _quickIngestAndRefreshDailyImpl() {
   var tz = getProjectTimeZone();
   var before = new Date();
   var yBefore = before.getFullYear(); var mBefore = before.getMonth(); var dBefore = before.getDate();
-  // Run fast ingest for active month; this updates UnifiedGames and writes last-based via computeLastBasedForRows
+  // Run fast ingest for active month; this updates Games and writes last-based via computeLastBasedForRows
   var added = _ingestActiveMonthImpl() || 0;
   try {
     // Determine which local dates to refresh in DailyRatings: today, and if we crossed midnight since last run, also yesterday
@@ -226,7 +226,7 @@ function _finalizePreviousActiveMonth(allRows, activeRow) {
   if (response.status === 'ok') {
     var json = response.json; var rows = transformArchiveToUnifiedRows(username, json); var urlIndex = buildExistingUnifiedUrlIndex(gamesSS); var newRows = [];
     for (var i = 0; i < rows.length; i++) { var u = rows[i][0]; if (u && !urlIndex.has(u)) newRows.push(rows[i]); }
-      if (newRows.length) { var unifiedSheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.UnifiedGames, CONFIG.HEADERS.UnifiedGames); ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.UnifiedGames); writeRowsChunked(unifiedSheet, newRows); }
+      if (newRows.length) { var unifiedSheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games); ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.Games); writeRowsChunked(unifiedSheet, newRows); }
     if (response.etag) archivesSheet.getRange(rowNumber, 5).setValue(response.etag); if (response.lastModified) archivesSheet.getRange(rowNumber, 6).setValue(response.lastModified);
     archivesSheet.getRange(rowNumber, 7).setValue(now);
   } else { archivesSheet.getRange(rowNumber, 7).setValue(now); archivesSheet.getRange(rowNumber, 11).setValue(String(response.error || response.code)); }

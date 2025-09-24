@@ -29,7 +29,7 @@ function rebuildUnifiedForMonthKey(monthKey) {
   var ss = getOrCreateGamesSpreadsheet();
   var gamesSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games);
   var metaSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.GameMeta, CONFIG.HEADERS.GameMeta);
-  var unifiedSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.UnifiedGames, CONFIG.HEADERS.UnifiedGames);
+  var unifiedSheet = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games);
   ensureSheetHeader(gamesSheet, CONFIG.HEADERS.Games);
   ensureSheetHeader(metaSheet, CONFIG.HEADERS.GameMeta);
 
@@ -80,7 +80,7 @@ function rebuildUnifiedForMonthKey(monthKey) {
   var cbByUrl = {};
 
   // Build unified rows (upsert by URL)
-  var unifiedHeader = CONFIG.HEADERS.UnifiedGames;
+  var unifiedHeader = CONFIG.HEADERS.Games;
   var rows = [];
   for (var k = 0; k < metaMonth.length; k++) {
     var m = metaMonth[k];
@@ -128,7 +128,7 @@ function rebuildUnifiedForMonthKey(monthKey) {
 
 function transformArchiveToUnifiedRows(meUsername, archiveJson) {
   if (!archiveJson || !archiveJson.games || !archiveJson.games.length) return [];
-  var unifiedHeader = CONFIG.HEADERS.UnifiedGames;
+  var unifiedHeader = CONFIG.HEADERS.Games;
   var metaHeader = CONFIG.HEADERS.GameMeta;
   var out = [];
   var tz = getProjectTimeZone();
@@ -202,7 +202,7 @@ function setFormatCursor(monthKey, format, ts, myRatingEnd, oppRatingEnd) {
 
 function computeLastBasedForRows(rows, monthKey) {
   if (!rows || !rows.length) return rows;
-  var uh = CONFIG.HEADERS.UnifiedGames;
+  var uh = CONFIG.HEADERS.Games;
   var idx = {
     fmt: uh.indexOf('format'), end: uh.indexOf('end_time_epoch'), myPost: uh.indexOf('my_rating_end'), oppPost: uh.indexOf('opp_rating_end'),
     myPreLast: uh.indexOf('my_pregame_last'), myDeltaLast: uh.indexOf('my_delta_last'), oppPreLast: uh.indexOf('opp_pregame_last'), oppDeltaLast: uh.indexOf('opp_delta_last')
@@ -232,7 +232,7 @@ function augmentUnifiedForUrls(urls, monthKeyOpt) {
   if (!monthKey) return;
   var sheetName = getGamesSheetNameForMonthKey(monthKey);
   var uni = getOrCreateSheet(ss, sheetName, CONFIG.HEADERS.Games);
-  ensureSheetHeader(uni, CONFIG.HEADERS.UnifiedGames);
+  ensureSheetHeader(uni, CONFIG.HEADERS.Games);
 
   var uh = uni.getRange(1, 1, 1, uni.getLastColumn()).getValues()[0];
   function uIdx(n){ for (var i = 0; i < uh.length; i++) if (String(uh[i]) === n) return i; return -1; }

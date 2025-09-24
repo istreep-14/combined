@@ -78,8 +78,8 @@ function appendTimelineTailForToday() {
   var today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var ss = getOrCreateGamesSpreadsheet();
   var monthKey = getActiveMonthKey(); if (!monthKey) return 0;
-  var uniName = getUnifiedSheetNameForMonthKey(monthKey);
-  var uni = getOrCreateSheet(ss, uniName, CONFIG.HEADERS.UnifiedGames);
+  var uniName = getGamesSheetNameForMonthKey(monthKey);
+  var uni = getOrCreateSheet(ss, uniName, CONFIG.HEADERS.Games);
   var last = uni.getLastRow(); if (last < 2) return 0;
   var header = uni.getRange(1, 1, 1, uni.getLastColumn()).getValues()[0];
   function idx(h){ for (var i=0;i<header.length;i++) if (String(header[i])===h) return i; return -1; }
@@ -125,8 +125,8 @@ function updateDailyRatingsForDates(dates) {
   var dr = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.DailyRatings, CONFIG.HEADERS.DailyRatings);
   var tz = getProjectTimeZone();
   var monthKey = getActiveMonthKey();
-  var uniName = monthKey ? getUnifiedSheetNameForMonthKey(monthKey) : '';
-  var uni = monthKey ? getOrCreateSheet(ss, uniName, CONFIG.HEADERS.UnifiedGames) : null;
+  var uniName = monthKey ? getGamesSheetNameForMonthKey(monthKey) : '';
+  var uni = monthKey ? getOrCreateSheet(ss, uniName, CONFIG.HEADERS.Games) : null;
   var aggregates = {};
   function acc(dateOnly, fmt, outcome, duration) {
     if (!aggregates[dateOnly]) aggregates[dateOnly] = {};

@@ -48,15 +48,15 @@ function _ingestActiveMonthImpl() {
     }
     var candidateRows = allUnified.slice(startIndex);
 
-    // Dedupe against existing UnifiedGames
+    // Dedupe against existing Games
     var existingUrlSet = buildExistingUnifiedUrlIndex(gamesSS);
     var newRows = [];
     for (var ii = 0; ii < candidateRows.length; ii++) { var urlNew = candidateRows[ii][0]; if (urlNew && !existingUrlSet.has(urlNew)) newRows.push(candidateRows[ii]); }
 
     if (newRows.length) {
-      var sheetName = getUnifiedSheetNameForMonthKey(archNameActive);
-      var unifiedSheet = getOrCreateSheet(gamesSS, sheetName, CONFIG.HEADERS.UnifiedGames);
-      ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.UnifiedGames);
+      var sheetName = getGamesSheetNameForMonthKey(archNameActive);
+      var unifiedSheet = getOrCreateSheet(gamesSS, sheetName, CONFIG.HEADERS.Games);
+      ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.Games);
       var chunkSize = 200;
       for (var off = 0; off < newRows.length; off += chunkSize) {
         var chunk = computeLastBasedForRows(newRows.slice(off, off + chunkSize), archNameActive);
@@ -149,8 +149,8 @@ function _fullBackfillImpl() {
     var newRows = []; for (var r = 0; r < all.length; r++) { var u = all[r][0]; if (u && !existing.has(u)) newRows.push(all[r]); }
 
     if (newRows.length) {
-      var sheetName = getUnifiedSheetNameForMonthKey(archName);
-      var unifiedSheet = getOrCreateSheet(gamesSS, sheetName, CONFIG.HEADERS.UnifiedGames); ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.UnifiedGames);
+      var sheetName = getGamesSheetNameForMonthKey(archName);
+      var unifiedSheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games); ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.Games);
       writeRowsChunked(unifiedSheet, computeLastBasedForRows(newRows, archName));
       try {
         var ah2 = archivesSheet.getRange(1,1,1,archivesSheet.getLastColumn()).getValues()[0];

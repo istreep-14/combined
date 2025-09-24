@@ -2,8 +2,8 @@ function runCallbacksBatch() {
   // Fetch a small batch of missing callbacks and write results directly into Unified sheet columns
   var ss = getOrCreateGamesSpreadsheet();
   var monthKey = getActiveMonthKey(); if (!monthKey) return 0;
-  var uniName = getUnifiedSheetNameForMonthKey(monthKey);
-  var uni = getOrCreateSheet(ss, uniName, CONFIG.HEADERS.UnifiedGames);
+  var uniName = getGamesSheetNameForMonthKey(monthKey);
+  var uni = getOrCreateSheet(ss, uniName, CONFIG.HEADERS.Games);
   var last = uni.getLastRow(); if (last < 2) return 0;
   var uh = uni.getRange(1, 1, 1, uni.getLastColumn()).getValues()[0];
   function uidx(n){ for (var i=0;i<uh.length;i++) if (String(uh[i])===n) return i; return -1; }

@@ -12,7 +12,7 @@ function setupProject() {
   // Ensure sheets and headers exist in the proper files
   var gameOpsLogSheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.GameOpsLog, CONFIG.HEADERS.GameOpsLog);
   // CallbackStats deprecated: callbacks are applied in-place into Unified
-  var unifiedSheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.UnifiedGames, CONFIG.HEADERS.UnifiedGames); ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.UnifiedGames);
+  var unifiedSheet = getOrCreateSheet(gamesSS, CONFIG.SHEET_NAMES.Games, CONFIG.HEADERS.Games); ensureSheetHeader(unifiedSheet, CONFIG.HEADERS.Games);
   getOrCreateSheet(archivesSS, CONFIG.SHEET_NAMES.Archives, CONFIG.HEADERS.Archives);
   // Daily totals removed
   getOrCreateSheet(logsSS, CONFIG.SHEET_NAMES.Logs, CONFIG.HEADERS.Logs);

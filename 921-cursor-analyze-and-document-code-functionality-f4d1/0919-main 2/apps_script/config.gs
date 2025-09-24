@@ -17,7 +17,11 @@ const CONFIG = {
     UnifiedGames: 'UnifiedGames',
     CallbackStats: 'CallbackStats',
     // Aggregations and live stats removed
-    Logs: 'Logs'
+    Logs: 'Logs',
+    RatingState: 'RatingState',
+    RatingsTimeline: 'RatingsTimeline',
+    DailyRatings: 'DailyRatings',
+    ManualAdjustments: 'ManualAdjustments'
   },
   HEADERS: {
     Archives: [
@@ -51,7 +55,29 @@ const CONFIG = {
       'fetched_at'
     ],
     // Ratings/Stats/Live headers removed
-    Logs: ['timestamp', 'level', 'code', 'message', 'context_json']
+    Logs: ['timestamp', 'level', 'code', 'message', 'context_json'],
+    RatingState: [
+      'format', 'last_event_ts', 'my_last_post', 'opp_last_post'
+    ],
+    RatingsTimeline: [
+      'ts_epoch', 'local_date', 'format', 'source', 'my_rating', 'opp_rating', 'url', 'confidence'
+    ],
+    DailyRatings: [
+      'date',
+      'bullet_wins','bullet_losses','bullet_draws','bullet_games','bullet_duration_seconds','bullet_eod_rating',
+      'blitz_wins','blitz_losses','blitz_draws','blitz_games','blitz_duration_seconds','blitz_eod_rating',
+      'rapid_wins','rapid_losses','rapid_draws','rapid_games','rapid_duration_seconds','rapid_eod_rating',
+      'daily_wins','daily_losses','daily_draws','daily_games','daily_duration_seconds','daily_eod_rating',
+      'live960_wins','live960_losses','live960_draws','live960_games','live960_duration_seconds','live960_eod_rating',
+      'daily960_wins','daily960_losses','daily960_draws','daily960_games','daily960_duration_seconds','daily960_eod_rating',
+      'bughouse_wins','bughouse_losses','bughouse_draws','bughouse_games','bughouse_duration_seconds','bughouse_eod_rating',
+      'crazyhouse_wins','crazyhouse_losses','crazyhouse_draws','crazyhouse_games','crazyhouse_duration_seconds','crazyhouse_eod_rating',
+      'kingofthehill_wins','kingofthehill_losses','kingofthehill_draws','kingofthehill_games','kingofthehill_duration_seconds','kingofthehill_eod_rating',
+      'threecheck_wins','threecheck_losses','threecheck_draws','threecheck_games','threecheck_duration_seconds','threecheck_eod_rating'
+    ],
+    ManualAdjustments: [
+      'ts_epoch', 'local_date', 'format', 'source', 'my_rating', 'opp_rating', 'note'
+    ]
   }
 };
 

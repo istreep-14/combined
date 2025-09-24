@@ -6,6 +6,7 @@
 function ingestActiveMonth() { return _ingestActiveMonthImpl(); }
 function fullBackfill() { return _fullBackfillImpl(); }
 function ensureMonthRollover() { return _ensureMonthRolloverImpl(); }
+function quickIngestAndRefreshDaily() { return _quickIngestAndRefreshDailyImpl(); }
 
 // ---- incremental.gs content ----
 function _ingestActiveMonthImpl() {
@@ -165,6 +166,34 @@ function _ensureMonthRolloverImpl() {
   var exists = values.some(function(r){ return parseInt(r[0],10) === yNow && parseInt(r[1],10) === mNow; });
   if (!exists) { var url = playerArchiveMonthUrl(getConfiguredUsername(), yNow, mNow); archivesSheet.appendRow([String(yNow), (mNow < 10 ? '0' : '') + String(mNow), url, 'active', '', '', now, CONFIG.SCHEMA_VERSION, '', '']); }
   else { for (var i = 0; i < values.length; i++) { var r = values[i]; if (parseInt(r[0],10) === yNow && parseInt(r[1],10) === mNow) { archivesSheet.getRange(2 + i, 4).setValue('active'); break; } } }
+}
+
+function _quickIngestAndRefreshDailyImpl() {
+  var tz = getProjectTimeZone();
+  var before = new Date();
+  var yBefore = before.getFullYear(); var mBefore = before.getMonth(); var dBefore = before.getDate();
+  // Run fast ingest for active month; this updates UnifiedGames and writes last-based via computeLastBasedForRows
+  var added = _ingestActiveMonthImpl() || 0;
+  try {
+    // Determine which local dates to refresh in DailyRatings: today, and if we crossed midnight since last run, also yesterday
+    var sheet = getOrCreateSheet(getOrCreateGamesSpreadsheet(), CONFIG.SHEET_NAMES.DailyRatings, CONFIG.HEADERS.DailyRatings);
+    ensureSheetHeader(sheet, CONFIG.HEADERS.DailyRatings);
+    var now = new Date();
+    var today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+    var yesterday = Utilities.formatDate(new Date(now.getTime() - 24*60*60*1000), tz, 'yyyy-MM-dd');
+    var lastChecked = PropertiesService.getScriptProperties().getProperty('DAILY_LAST_CHECKED_DATE') || '';
+    var targets = {};
+    targets[today] = true;
+    if (lastChecked && lastChecked !== today) targets[yesterday] = true;
+    PropertiesService.getScriptProperties().setProperty('DAILY_LAST_CHECKED_DATE', today);
+    // Rebuild/append RatingsTimeline tail for today (cheap: noop if no new games)
+    try { appendTimelineTailForToday(); } catch (e) { logWarn('TIMELINE_TAIL_FAIL', 'appendTimelineTailForToday failed', { error: String(e && e.message || e) }); }
+    // Incrementally refresh DailyRatings only for target dates
+    try { updateDailyRatingsForDates(Object.keys(targets)); } catch (e) { logWarn('DAILY_UPDATE_FAIL', 'updateDailyRatingsForDates failed', { error: String(e && e.message || e) }); }
+  } catch (e) {
+    logWarn('QUICK_REFRESH_FAIL', 'quickIngestAndRefreshDaily post steps failed', { error: String(e && e.message || e) });
+  }
+  return added;
 }
 
 function _finalizePreviousActiveMonth(allRows, activeRow) {

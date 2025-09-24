@@ -109,21 +109,37 @@ function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt) {
     }
     if (endEpoch) { endLocal = new Date(Number(endEpoch)*1000).toISOString(); dateOnly = endLocal.slice(0,10); }
     var baseInc = parseTimeControl(g.time_control || '');
-    var meColor = ''; var myUser=''; var myRating='', myOutcome='';
-    var oppUser='', oppRating='', oppOutcome='';
-    // Pick colors by username later; for now, store as-is
-    myUser = g.white && g.white.username || '';
-    myRating = g.white && g.white.rating; myOutcome = g.white && g.white.result || '';
-    oppUser = g.black && g.black.username || '';
-    oppRating = g.black && g.black.rating; oppOutcome = g.black && g.black.result || '';
+    // Identify "me" by configured USERNAME (case-insensitive)
+    var meName = String(getDefaultUsername() || '').toLowerCase();
+    var whiteUser = (g.white && g.white.username) || '';
+    var blackUser = (g.black && g.black.username) || '';
+    var whiteUserLC = String(whiteUser || '').toLowerCase();
+    var blackUserLC = String(blackUser || '').toLowerCase();
+    var meColor = '';
+    if (meName && whiteUserLC === meName) meColor = 'white';
+    else if (meName && blackUserLC === meName) meColor = 'black';
+
+    var myUser = '', myRating = '', myOutcome = '';
+    var oppUser = '', oppRating = '', oppOutcome = '';
+    if (meColor === 'white') {
+      myUser = whiteUser; myRating = g.white && g.white.rating; myOutcome = (g.white && g.white.result) || '';
+      oppUser = blackUser; oppRating = g.black && g.black.rating; oppOutcome = (g.black && g.black.result) || '';
+    } else if (meColor === 'black') {
+      myUser = blackUser; myRating = g.black && g.black.rating; myOutcome = (g.black && g.black.result) || '';
+      oppUser = whiteUser; oppRating = g.white && g.white.rating; oppOutcome = (g.white && g.white.result) || '';
+    } else {
+      // Fallback if USERNAME not set or mismatch: keep white as "my" for determinism
+      myUser = whiteUser; myRating = g.white && g.white.rating; myOutcome = (g.white && g.white.result) || '';
+      oppUser = blackUser; oppRating = g.black && g.black.rating; oppOutcome = (g.black && g.black.result) || '';
+    }
 
     var hubRow = projectFields('hub', {
       url: url, rated: g.rated || false, time_class: timeClass, rules: rules, format: format,
       end_time_epoch: endEpoch, start_time_local: startLocal, end_time_local: endLocal, date: dateOnly,
       duration_seconds: (endEpoch && startLocal ? Math.round((Number(endEpoch)*1000 - Date.parse(startLocal))/1000) : ''),
       time_control: g.time_control || '', base_time: baseInc.base, increment: baseInc.inc, correspondence_time: baseInc.corr,
-      my_username: myUser, my_color: '', my_rating_end: myRating, my_outcome: myOutcome,
-      opp_username: oppUser, opp_color: '', opp_rating_end: oppRating, opp_outcome: oppOutcome,
+      my_username: myUser, my_color: meColor, my_rating_end: myRating, my_outcome: myOutcome,
+      opp_username: oppUser, opp_color: (meColor===''?'':(meColor==='white'?'black':'white')), opp_rating_end: oppRating, opp_outcome: oppOutcome,
       end_reason: deriveEndReason(g),
       archive_year: yearOpt ? String(yearOpt) : '', archive_month: monthOpt ? ((monthOpt<10?'0':'')+String(monthOpt)) : '',
       archive_etag: '', archive_last_modified: '',

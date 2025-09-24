@@ -26,6 +26,9 @@ function setupProject() {
   PropertiesService.getScriptProperties().setProperty('SPOKE_ANALYSIS_ID', analysisSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_CALLBACK_ID', callbackSS.getId());
 
+  // Create Hub ExportQueue
+  getOrCreateSheet(hubSS, 'ExportQueue', ['url','target','reason','queued_at']);
+
   return {
     hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: callbackSS.getUrl()
   };
@@ -65,7 +68,7 @@ function fetchMonthArchive(username, year, month, etagOpt) {
   return { status:'error', code: code };
 }
 
-function flattenArchiveToRows(username, archiveJson) {
+function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt) {
   var outHub = []; var outAnalysis = [];
   var games = (archiveJson && archiveJson.games) || [];
   for (var i=0;i<games.length;i++) {
@@ -103,7 +106,15 @@ function flattenArchiveToRows(username, archiveJson) {
       time_control: g.time_control || '', base_time: baseInc.base, increment: baseInc.inc, correspondence_time: baseInc.corr,
       my_username: myUser, my_color: '', my_rating_end: myRating, my_outcome: myOutcome,
       opp_username: oppUser, opp_color: '', opp_rating_end: oppRating, opp_outcome: oppOutcome,
-      end_reason: deriveEndReason(g)
+      end_reason: deriveEndReason(g),
+      archive_year: yearOpt ? String(yearOpt) : '', archive_month: monthOpt ? ((monthOpt<10?'0':'')+String(monthOpt)) : '',
+      archive_etag: '', archive_last_modified: '',
+      archive_sig: simpleHash((g.time_control||'')+'|'+(g.rated?'1':'0')+'|'+(g.white&&g.white.username||'')+'|'+(g.black&&g.black.username||'')+'|'+(g.end_time||'')),
+      pgn_sig: simpleHash((extractPgnHeader(pgn,'UTCDate')||'')+'|'+(extractPgnHeader(pgn,'UTCTime')||'')+'|'+(extractPgnHeader(pgn,'ECO')||'')),
+      schema_version: STATE.SCHEMA_VERSION, ingest_version: STATE.INGEST_VERSION,
+      last_ingested_at: new Date(), last_rechecked_at: '',
+      enrichment_status: 'queued', enrichment_targets: 'analysis,callback',
+      last_enrichment_applied_at: '', last_enrichment_reason: '', notes: ''
     });
     outHub.push(hubRow);
 
@@ -166,23 +177,27 @@ function writeSpoke(kind, rows) {
 function exportNewGames(username, year, month) {
   var res = fetchMonthArchive(username, year, month, null);
   if (res.status !== 'ok' || !res.json) return { written:0 };
-  var flat = flattenArchiveToRows(username, res.json);
+  var flat = flattenArchiveToRows(username, res.json, year, month);
   writeHub(flat.hub);
   writeSpoke('analysis', flat.analysis);
+  // Queue exports for analysis and callback
+  var urls = flat.hub.map(function(r){ return r[0]; });
+  queueExports(urls, ['analysis','callback'], 'new');
   return { written: flat.hub.length };
 }
 
 function enqueueForCallback(urls) {
-  var ss = getSpokeSS('callback'); var sh = getOrCreateSheet(ss, 'CallbackQueue', ['url','queued_at']);
-  var rows = (urls||[]).map(function(u){ return [u, new Date()]; });
-  if (rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, 2).setValues(rows);
+  queueExports(urls, ['callback'], 'manual');
 }
 
 function processCallbackBatch(maxN) {
-  var ss = getSpokeSS('callback'); var queue = getOrCreateSheet(ss, 'CallbackQueue', ['url','queued_at']);
-  var last = queue.getLastRow(); if (last < 2) return { applied:0 };
-  var n = Math.min(Math.max(1, maxN||20), last-1);
-  var urls = queue.getRange(2,1,n,1).getValues().map(function(r){ return r[0]; }).filter(Boolean);
+  // Read from Hub ExportQueue for target 'callback'
+  var hub = getHubSS(); var q = getOrCreateSheet(hub, 'ExportQueue', ['url','target','reason','queued_at']);
+  var last = q.getLastRow(); if (last < 2) return { applied:0 };
+  var vals = q.getRange(2,1,last-1,4).getValues();
+  var urls = []; var idxs = [];
+  var limit = Math.max(1, maxN||20);
+  for (var i=0;i<vals.length && urls.length<limit;i++) { if (String(vals[i][1])==='callback') { urls.push(vals[i][0]); idxs.push(2+i); } }
   if (!urls.length) return { applied: 0 };
   var out = [];
   for (var i=0;i<urls.length;i++) {
@@ -217,11 +232,47 @@ function processCallbackBatch(maxN) {
     } catch (e) {}
   }
   if (out.length) {
+    var ss = getSpokeSS('callback');
     var raw = getOrCreateSheet(ss, SPOKES.callback.name, getHeaderFor('spoke:callback'));
     raw.getRange(raw.getLastRow()+1, 1, out.length, out[0].length).setValues(out);
-    // Drop processed queue lines
-    queue.deleteRows(2, urls.length);
+    // Drop processed queue lines from Hub ExportQueue (delete from bottom to top)
+    for (var d=idxs.length-1; d>=0; d--) q.deleteRow(idxs[d]);
+    // Mark hub enrichment status for these urls
+    setHubEnrichmentStatus(urls, 'callback', 'partial', 'callback_batch');
   }
   return { applied: out.length };
+}
+
+function queueExports(urls, targets, reason) {
+  var hub = getHubSS(); var q = getOrCreateSheet(hub, 'ExportQueue', ['url','target','reason','queued_at']);
+  var rows = [];
+  for (var i=0;i<urls.length;i++) {
+    for (var j=0;j<targets.length;j++) {
+      rows.push([urls[i], targets[j], reason||'', new Date()]);
+    }
+  }
+  if (rows.length) q.getRange(q.getLastRow()+1, 1, rows.length, 4).setValues(rows);
+}
+
+function setHubEnrichmentStatus(urls, target, status, reason) {
+  var ss = getHubSS(); var sh = getOrCreateSheet(ss, HUB.name, getHeaderFor('hub'));
+  var last = sh.getLastRow(); if (last < 2) return;
+  var header = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+  function idx(n){ for (var i=0;i<header.length;i++) if (String(header[i])===n) return i; return -1; }
+  var iUrl = 0; // url is first in our header
+  var iStatus = idx('enrichment_status'); var iTargets = idx('enrichment_targets'); var iApplied = idx('last_enrichment_applied_at'); var iReason = idx('last_enrichment_reason');
+  var map = {}; for (var u=0; u<urls.length; u++) map[String(urls[u])]=true;
+  var vals = sh.getRange(2,1,last-1,sh.getLastColumn()).getValues();
+  for (var r=0; r<vals.length; r++) {
+    var u = String(vals[r][iUrl]||''); if (!map[u]) continue;
+    if (iStatus>=0) vals[r][iStatus] = status;
+    if (iApplied>=0) vals[r][iApplied] = new Date();
+    if (iReason>=0) vals[r][iReason] = reason||'';
+  }
+  sh.getRange(2,1,last-1,sh.getLastColumn()).setValues(vals);
+}
+
+function simpleHash(str) {
+  try { var s = String(str||''); var h = 0; for (var i=0;i<s.length;i++) { h = ((h<<5)-h) + s.charCodeAt(i); h |= 0; } return String(h>>>0); } catch(e){ return ''; }
 }
 

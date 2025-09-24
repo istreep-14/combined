@@ -49,6 +49,20 @@ const CONFIG = {
     ],
     // Ratings/Stats/Live headers removed
     Logs: ['timestamp', 'level', 'code', 'message', 'context_json'],
+    GameMeta: [
+      'url', 'id', 'is_live', 'rated', 'time_class', 'rules', 'format',
+      'start_time_epoch', 'end_time_epoch', 'duration_seconds',
+      'time_control', 'base_time', 'increment', 'correspondence_time',
+      'eco_code', 'eco_url',
+      'my_username', 'my_color', 'my_rating', 'my_result', 'my_outcome', 'my_score',
+      'opp_username', 'opp_color', 'opp_rating', 'opp_result', 'opp_outcome', 'opp_score',
+      'accuracy_white', 'accuracy_black',
+      'pgn_moves', 'tcn', 'initial_setup', 'fen',
+      'archive_name',
+      'my_rating_change_cb', 'opp_rating_change_cb', 'my_pregame_cb', 'opp_pregame_cb',
+      'my_pregame_last', 'my_delta_last', 'opp_pregame_last', 'opp_delta_last',
+      'my_snapshot_bullet', 'my_snapshot_blitz', 'my_snapshot_rapid', 'my_snapshot_daily'
+    ],
     RatingState: [
       'format', 'last_event_ts', 'my_last_post', 'opp_last_post'
     ],

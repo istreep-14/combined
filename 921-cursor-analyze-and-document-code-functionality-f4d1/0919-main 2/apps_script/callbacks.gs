@@ -2,9 +2,17 @@ function runCallbacksBatch() {
   // Fetch a small batch of missing callbacks and write results directly into Unified sheet columns
   var ss = getOrCreateGamesSpreadsheet();
   var monthKey = getActiveMonthKey(); if (!monthKey) return 0;
+  var result = processCallbacksForSheet(ss, monthKey, 30);
+  appendOpsLog('', 'callbacks_applied', 'ok', 200, { applied: result.applied, month: monthKey });
+  return result.applied;
+}
+
+// buildCallbackUrlIndex removed (CallbackStats deprecated)
+
+function processCallbacksForSheet(ss, monthKey, maxBatch) {
   var uniName = getGamesSheetNameForMonthKey(monthKey);
   var uni = getOrCreateSheet(ss, uniName, CONFIG.HEADERS.Games);
-  var last = uni.getLastRow(); if (last < 2) return 0;
+  var last = uni.getLastRow(); if (last < 2) return { applied: 0 };
   var uh = uni.getRange(1, 1, 1, uni.getLastColumn()).getValues()[0];
   function uidx(n){ for (var i=0;i<uh.length;i++) if (String(uh[i])===n) return i; return -1; }
   var iUrl = uidx('url');
@@ -16,7 +24,8 @@ function runCallbacksBatch() {
   var iOppCountry = uidx('opp_country'); var iOppMember = uidx('opp_membership'); var iOppTab = uidx('opp_default_tab'); var iOppPost = uidx('opp_post_move_action');
   var vals = uni.getRange(2, 1, last - 1, uni.getLastColumn()).getValues();
   var batch = [];
-  for (var r=0; r<vals.length && batch.length < 30; r++) {
+  var limit = Math.max(1, maxBatch || 30);
+  for (var r=0; r<vals.length && batch.length < limit; r++) {
     var url = vals[r][iUrl]; if (!url) continue;
     var have = (vals[r][iMyDeltaCb]!=='' && vals[r][iMyDeltaCb]!==null && vals[r][iMyDeltaCb]!==undefined);
     if (have) continue;
@@ -24,7 +33,7 @@ function runCallbacksBatch() {
     var type = inferTypeFromUrl(url);
     batch.push({ url: url, type: type, id: id, rowIndex: 2 + r });
   }
-  if (!batch.length) return 0;
+  if (!batch.length) return { applied: 0 };
   var reqs = [];
   for (var j=0;j<batch.length;j++) {
     var b = batch[j]; var endpoint = b.type === 'daily' ? callbackDailyGameUrl(b.id) : callbackLiveGameUrl(b.id);
@@ -58,17 +67,18 @@ function runCallbacksBatch() {
       applied++;
     }
   }
-  // Update Archives counters for active month
+  // Update Archives counters for the target month
   try {
+    var parts = String(monthKey).split('/'); var year = parts[0]; var month = parts[1];
     var archivesSS = getOrCreateArchivesSpreadsheet();
     var aSheet = getOrCreateSheet(archivesSS, CONFIG.SHEET_NAMES.Archives, CONFIG.HEADERS.Archives);
     var alast = aSheet.getLastRow(); if (alast >= 2) {
       var ah = aSheet.getRange(1,1,1,aSheet.getLastColumn()).getValues()[0];
       function aidx(n){ for (var i=0;i<ah.length;i++) if (String(ah[i])===n) return i; return -1; }
-      var iY = 0, iM = 1, iStatus = 3; var iCbCnt = aidx('callback_applied_count');
+      var iY = 0, iM = 1; var iCbCnt = aidx('callback_applied_count');
       var av = aSheet.getRange(2,1,alast-1,aSheet.getLastColumn()).getValues();
       for (var rr=0; rr<av.length; rr++) {
-        if (String(av[rr][iStatus]) === 'active') {
+        if (String(av[rr][iY]) === String(year) && String(av[rr][iM]) === String(month)) {
           var rowIndex = 2 + rr; var cur = (iCbCnt>=0 ? av[rr][iCbCnt] : 0);
           if (iCbCnt>=0) aSheet.getRange(rowIndex, iCbCnt+1).setValue(Number(cur||0) + Number(applied||0));
           break;
@@ -76,11 +86,32 @@ function runCallbacksBatch() {
       }
     }
   } catch (e) {}
-  appendOpsLog('', 'callbacks_applied', 'ok', 200, { applied: applied });
-  return applied;
+  return { applied: applied };
 }
 
-// buildCallbackUrlIndex removed (CallbackStats deprecated)
+function runCallbacksForMonth(year, month, maxBatch) {
+  var ss = getOrCreateGamesSpreadsheet();
+  var y = String(year); var m = String(month); if (m.length === 1) m = '0' + m;
+  var monthKey = y + '/' + m;
+  var res = processCallbacksForSheet(ss, monthKey, maxBatch || 30);
+  appendOpsLog('', 'callbacks_applied', 'ok', 200, { applied: res.applied, month: monthKey });
+  return res.applied;
+}
+
+function runCallbacksForAllMonths(maxBatchPerSheet) {
+  var ss = getOrCreateGamesSpreadsheet();
+  var sheets = ss.getSheets(); var total = 0;
+  for (var i=0;i<sheets.length;i++) {
+    var name = sheets[i].getName();
+    var m = name.match(/^Games_(\d{4})_(\d{2})$/);
+    if (!m) continue;
+    var monthKey = m[1] + '/' + m[2];
+    var res = processCallbacksForSheet(ss, monthKey, maxBatchPerSheet || 30);
+    total += res.applied;
+  }
+  appendOpsLog('', 'callbacks_applied_all', 'ok', 200, { applied_total: total });
+  return total;
+}
 
 function inferTypeFromUrl(url) {
   if (url.indexOf('/game/daily/') >= 0) return 'daily';

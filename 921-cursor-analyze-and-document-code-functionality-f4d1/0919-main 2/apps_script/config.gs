@@ -21,7 +21,9 @@ const CONFIG = {
     RatingState: 'RatingState',
     RatingsTimeline: 'RatingsTimeline',
     DailyRatings: 'DailyRatings',
-    ManualAdjustments: 'ManualAdjustments'
+    ManualAdjustments: 'ManualAdjustments',
+    LiveStatsMeta: 'LiveStatsMeta',
+    PlayerStatsLog: 'PlayerStatsLog'
   },
   HEADERS: {
     Archives: [
@@ -77,6 +79,12 @@ const CONFIG = {
     ],
     ManualAdjustments: [
       'ts_epoch', 'local_date', 'format', 'source', 'my_rating', 'opp_rating', 'note'
+    ],
+    LiveStatsMeta: [
+      'fetched_at', 'format', 'raw_json'
+    ],
+    PlayerStatsLog: [
+      'fetched_at', 'format', 'last_rating', 'last_date_epoch', 'rd', 'best_rating', 'best_date_epoch', 'best_game_url', 'win', 'loss', 'draw', 'raw_json'
     ]
   }
 };

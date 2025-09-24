@@ -30,7 +30,7 @@ Status: authoritative. Consumers MUST follow this document. Non-normative narrat
 ### 3. High-Level Architecture
 
 - Data Source: Chess.com Public Data API (archives/monthly games) and callback endpoints for enrichments.
-- Storage: Google Sheets with `Unified_YYYY_MM` monthly sheets, `Archives`, `CallbackStats`, `Logs`, and `GameOpsLog`.
+- Storage: Google Sheets with `Unified_YYYY_MM` monthly sheets, `Archives`, `Logs`, and `GameOpsLog`.
 - Code: Google Apps Script files providing orchestration, transform, IO, logging, and API helpers.
 - Logging: Structured logs in `Logs` and operational events in `GameOpsLog`.
 
@@ -134,7 +134,7 @@ Removed in simplified flow.
 - What changed
   - Replaced `Games` and `GameMeta` with monthly `Unified_YYYY_MM` sheets.
   - Ingest/backfill upsert Unified rows by `url`; last‑based deltas computed via per‑format cursors.
-  - `CallbackStats` remains the normalization store for callback payloads; Unified pulls deltas/pregame from it.
+- Callback deltas are applied in-place to Unified rows; no `CallbackStats` sheet.
   - Live Stats and Ratings pipelines removed.
 
 - Field mapping (conceptual)

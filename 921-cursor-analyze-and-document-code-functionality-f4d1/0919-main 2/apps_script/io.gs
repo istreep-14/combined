@@ -19,10 +19,7 @@ function getOrCreateGamesSpreadsheet() {
   return ss;
 }
 
-function getOrCreateCallbacksSpreadsheet() {
-  // Consolidate CallbackStats into the core Games spreadsheet
-  return getOrCreateGamesSpreadsheet();
-}
+// getOrCreateCallbacksSpreadsheet removed (callbacks applied to Unified)
 
 // Ratings/Stats/Live spreadsheets removed in unified-only mode
 

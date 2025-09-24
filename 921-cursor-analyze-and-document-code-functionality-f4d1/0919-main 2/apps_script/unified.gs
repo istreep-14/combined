@@ -1,6 +1,6 @@
 /**
  * Module: unified
- * Purpose: Build a per-game unified record by joining GameMeta, Games, and CallbackStats.
+ * Purpose: Build a per-game unified record by joining GameMeta and Games.
  */
 
 function rebuildUnifiedForActiveMonth() {
@@ -76,7 +76,7 @@ function rebuildUnifiedForMonthKey(monthKey) {
     }
   }
 
-  // CallbackStats is deprecated; callback deltas are applied in-place into Unified
+  // Callback deltas are applied in-place into Unified by callback batch; nothing to read here
   var cbByUrl = {};
 
   // Build unified rows (upsert by URL)
@@ -93,7 +93,7 @@ function rebuildUnifiedForMonthKey(monthKey) {
     var endLocal = gm ? gm[gi.end_time] : '';
     var endReason = gm ? gm[gi.end_reason] : '';
 
-    // Prefer meta augment columns; fallback to CallbackStats
+    // Prefer meta augment columns; no CallbackStats fallback
     var myDeltaCb = (mi.my_d_cb >= 0 ? m[mi.my_d_cb] : ''); if (myDeltaCb === '' && cb.myDelta !== undefined) myDeltaCb = cb.myDelta;
     var oppDeltaCb = (mi.opp_d_cb >= 0 ? m[mi.opp_d_cb] : ''); if (oppDeltaCb === '' && cb.oppDelta !== undefined) oppDeltaCb = cb.oppDelta;
     var myPregameCb = (mi.my_pre_cb >= 0 ? m[mi.my_pre_cb] : ''); if (myPregameCb === '' && cb.myPre !== undefined) myPregameCb = cb.myPre;
@@ -241,18 +241,7 @@ function augmentUnifiedForUrls(urls, monthKeyOpt) {
   var uVals = uni.getRange(2, 1, last - 1, uni.getLastColumn()).getValues();
   var rowByUrl = {}; for (var i0 = 0; i0 < uVals.length; i0++) { var u = uVals[i0][ui.url]; if (u) rowByUrl[String(u)] = 2 + i0; }
 
-  // Build Callback map
-  var cb = getOrCreateSheet(ss, CONFIG.SHEET_NAMES.CallbackStats, CONFIG.HEADERS.CallbackStats);
-  ensureSheetHeader(cb, CONFIG.HEADERS.CallbackStats);
-  var clast = cb.getLastRow();
-  var cbMap = {};
-  if (clast >= 2) {
-    var ch = cb.getRange(1, 1, 1, cb.getLastColumn()).getValues()[0];
-    function cIdx(n){ for (var i = 0; i < ch.length; i++) if (String(ch[i]) === n) return i; return -1; }
-    var cu = cIdx('url'), cMy = cIdx('my_rating_change'), cOpp = cIdx('opp_rating_change');
-    var cVals = cb.getRange(2, 1, clast - 1, cb.getLastColumn()).getValues();
-    for (var r2 = 0; r2 < cVals.length; r2++) { var uu = cVals[r2][cu]; if (!uu) continue; cbMap[String(uu)] = { dmy: cVals[r2][cMy], dopp: cVals[r2][cOpp] }; }
-  }
+  // No CallbackStats sheet in simplified architecture
 
   // Update Unified per URL (callback-based only)
   var startCol = ui.myDeltaCb; if (startCol < 0) return;

@@ -188,25 +188,4 @@ function parseCallbackIdentity(json, b) {
   };
 }
 
-// We only record unified values in CallbackStats; no writes back to Games.
-
-// removed duplicate runCallbacksBatch implementation
-
-function hasCallbackRow(callbackSheet, url) {
-  var lastRow = callbackSheet.getLastRow();
-  if (lastRow < 2) return false;
-  var urls = callbackSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (var i = 0; i < urls.length; i++) {
-    if (urls[i][0] === url) return true;
-  }
-  return false;
-}
-
-function fetchCallback(type, id) {
-  var base = type === 'daily' ? 'https://www.chess.com/callback/daily/game/' : 'https://www.chess.com/callback/live/game/';
-  var res = fetchJsonWithEtag(base + id);
-  if (res.status !== 'ok' || !res.json) throw new Error('Callback fetch failed: ' + (res.error || res.code));
-  return res.json;
-}
-
-// Removed legacy upgradeCallbackStatsHeaderIfNeeded in favor of ensureSheetHeader
+// CallbackStats legacy helpers removed

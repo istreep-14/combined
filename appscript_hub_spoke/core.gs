@@ -54,6 +54,24 @@ function getOrCreateSheet(ss, name, headers) {
   return sh;
 }
 
+// Defaults and helpers
+function setDefaults() {
+  PropertiesService.getScriptProperties().setProperties({
+    USERNAME: 'your_username',
+    TIMEZONE: 'America/New_York'
+  }, true);
+}
+
+function getDefaultUsername() {
+  var p = PropertiesService.getScriptProperties();
+  return p.getProperty('USERNAME') || '';
+}
+
+function getDefaultTimezone() {
+  var p = PropertiesService.getScriptProperties();
+  return p.getProperty('TIMEZONE') || Session.getScriptTimeZone() || 'Etc/UTC';
+}
+
 function fetchMonthArchive(username, year, month, etagOpt) {
   var mm = (month < 10 ? '0' : '') + String(month);
   var url = 'https://api.chess.com/pub/player/' + encodeURIComponent(username) + '/games/' + String(year) + '/' + mm;

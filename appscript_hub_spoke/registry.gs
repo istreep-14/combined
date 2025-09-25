@@ -120,6 +120,9 @@ function getHeaderFor(target) {
         }
       });
     });
+    // Include pinned callback fields in AllFields
+    var pinned = ['result_message','ply_count'];
+    for (var i=0;i<pinned.length;i++) if (!names2[pinned[i]]) { names2[pinned[i]]=true; out2.push(pinned[i]); }
     out2 = out2.filter(function(n){ return n!=='url'; });
     out2.unshift('url');
     return out2;

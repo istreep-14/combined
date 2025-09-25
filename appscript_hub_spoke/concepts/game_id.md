@@ -13,7 +13,15 @@
 
 Construction rule:
 1) Prefer the URL from JSON/PGN when present (authoritative and stable).
-2) If missing, build from Callback: use `isLiveGame` to choose the path, then append `game.id`.
+2) If Callback is present, use `isLiveGame` to choose the path, then append `game.id`.
+3) If Callback is not present, infer the path from source time metadata:
+   - If JSON `time_class` ∈ {bullet, blitz, rapid} → live path
+   - If JSON `time_class` = daily → daily path
+   - If JSON `time_class` missing, parse PGN `TimeControl`:
+     - Contains `+` (live increment) → live path
+     - Contains `/` (correspondence seconds per move) → daily path
+     - Bare seconds: compute EstimatedMinutes = base_seconds ÷ 60; if ≥ 10 → Rapid (live), else live; daily only when `/` is present
+   - For variants: `chess960` follows same live/daily rule; other variants (bughouse, crazyhouse, kingofthehill, threecheck) are always live
 
 Examples:
 - isLiveGame=true, id=124221014703 → `https://www.chess.com/game/live/124221014703`

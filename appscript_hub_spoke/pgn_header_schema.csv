@@ -20,6 +20,6 @@ StartTime,string,Local start time string,AllFields.start_time_local (fallback),S
 EndDate,string,Local end date (yyyy.MM.dd),AllFields.date (fallback),Prefer API end_time epoch,
 EndTime,string,Local end time string,AllFields.end_time_local (fallback),Prefer API end_time epoch,
 Link,string,URL of this game,AllFields.url (fallback),Used if API url missing,
-SetUp,string,Indicates non-standard initial position ("1"),,When "1", FEN header gives initial setup,
-FEN,string,Initial board setup FEN (when SetUp="1"),AllFields.initial_setup,Not the final FEN; final comes from API json.fen,
+SetUp,string,"Indicates non-standard initial position (""1"")",,"When ""1"", FEN header gives initial setup",
+FEN,string,"Initial board setup FEN (when SetUp=""1"")",AllFields.initial_setup,Not the final FEN; final comes from API json.fen,
 Movetext,text,Body after the blank line following headers,AllFields.pgn_moves,Not a header; extracted as PGN movetext after headers,

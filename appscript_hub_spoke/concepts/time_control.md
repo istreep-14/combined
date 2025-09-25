@@ -3,7 +3,7 @@
 ### Sources and shapes
 - JSON `games[].time_control`: PGN-style string, examples: `60`, `300+2`, `1/86400`.
 - PGN `TimeControl`: same as JSON (string).
-- Callback `game.baseTime1`, `game.timeIncrement1`: base seconds and increment seconds as numbers.
+- Callback `game.baseTime1`, `game.timeIncrement1`: base and increment reported in deciseconds (×10). Divide by 10 to get seconds.
 
 ### Parsing to base and increment
 - Base time (seconds): parse integer before `+` or `/` when present; if bare number, it is the base seconds.
@@ -13,6 +13,8 @@ Examples:
 - `300+2` → base = 300, increment = 2
 - `60` → base = 60, increment = 0
 - `1/86400` → base = 1 (per-move base in days context), corr = 86400 (seconds per move)
+Callback example:
+- `game.baseTime1=1800`, `game.timeIncrement1=0` → base = 180.0s, inc = 0.0s (deciseconds → seconds)
 
 ### Estimating total time and mapping to time class
 Chess.com uses an average game length of 40 moves per player to estimate total time per side:
@@ -58,5 +60,6 @@ Result code links:
 - Timeout vs insufficient material: `timevsinsufficient` (draw on the side that had material insufficiency).
 
 ### Field relationships across sources
-- Base/increment can be parsed from JSON/PGN `time_control` or read directly from Callback `baseTime1`, `timeIncrement1`.
+- Base/increment can be parsed from JSON/PGN `time_control` or read from Callback `baseTime1`, `timeIncrement1` (convert deciseconds to seconds).
+- `game.moveTimestamps` in Callback is also in deciseconds; divide by 10 to get seconds between events.
 - Time class derives from estimated total minutes using the 40-move heuristic as above.

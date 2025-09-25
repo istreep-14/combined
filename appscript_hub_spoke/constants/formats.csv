@@ -1,0 +1,13 @@
+rules,time_class,derived_format,notes
+chess,bullet,bullet,"Standard chess uses time_class directly"
+chess,blitz,blitz,"Standard chess uses time_class directly"
+chess,rapid,rapid,"Standard chess uses time_class directly"
+chess,daily,daily,"Standard chess uses time_class directly"
+chess960,bullet,live960,"Live (bullet/blitz/rapid) mapped to live960"
+chess960,blitz,live960,"Live (bullet/blitz/rapid) mapped to live960"
+chess960,rapid,live960,"Live (bullet/blitz/rapid) mapped to live960"
+chess960,daily,daily960,"Daily mapped to daily960"
+bughouse,any,bughouse,"Variants collapse time_class into a single bucket"
+crazyhouse,any,crazyhouse,"Variants collapse time_class into a single bucket"
+kingofthehill,any,kingofthehill,"Variants collapse time_class into a single bucket"
+threecheck,any,threecheck,"Variants collapse time_class into a single bucket"

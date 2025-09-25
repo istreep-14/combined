@@ -1,5 +1,0 @@
-constant_type,key,value,notes
-format,canonical,"bullet|blitz|rapid|daily|live960|daily960|bughouse|crazyhouse|kingofthehill|threecheck","Output buckets for desired_format"
-result,win_codes,"win","Outcome when side's result is 'win'"
-result,loss_codes,"checkmated|timeout|resigned|abandoned|lose","Common loss result tokens"
-result,draw_codes,"agreed|repetition|stalemate|insufficient|50move|timevsinsufficient|draw","Draw-family tokens"

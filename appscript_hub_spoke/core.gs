@@ -379,7 +379,7 @@ function processCallbackBatch(maxN) {
       var json = JSON.parse(resp.getContentText()||'{}');
       var g = (json && json.game) || {}; var players = json && json.players || {};
       var pgn = (json && json.pgnHeaders) || {};
-      var myColor = resolveMyColorFromCallback(pgn.White, pgn.Black) || inferMyColorForCallback(url, pgn.White, pgn.Black);
+      var myColor = resolveMyColorSmart(url, pgn, players) || resolveMyColorFromCallback(pgn.White, pgn.Black) || inferMyColorForCallback(url, pgn.White, pgn.Black);
       // pick exact deltas by color
       var myDelta = '';
       var oppDelta = '';
@@ -443,6 +443,23 @@ function resolveMyColorFromCallback(pgnWhite, pgnBlack) {
   var b = String(pgnBlack||'').toLowerCase();
   if (me && w===me) return 'white';
   if (me && b===me) return 'black';
+  return '';
+}
+
+// Prefer configured username; check PGN first, then players.top/bottom usernames
+function resolveMyColorSmart(url, pgn, players) {
+  try {
+    var me = String(getDefaultUsername()||'').toLowerCase();
+    if (!me) return '';
+    var pw = String(pgn && pgn.White || '').toLowerCase();
+    var pb = String(pgn && pgn.Black || '').toLowerCase();
+    if (me === pw) return 'white';
+    if (me === pb) return 'black';
+    var topU = String(players && players.top && players.top.username || '').toLowerCase();
+    var botU = String(players && players.bottom && players.bottom.username || '').toLowerCase();
+    if (me === topU) return String(players && players.top && players.top.color || '').toLowerCase();
+    if (me === botU) return String(players && players.bottom && players.bottom.color || '').toLowerCase();
+  } catch (e) {}
   return '';
 }
 
@@ -669,8 +686,8 @@ function applyCallbacksToCore() {
   var iUrl = idx('url'); var iApplied = idx('applied_at');
   // callback data columns begin after the first 4 columns
   var cbHeader = getHeaderFor('spoke:callback');
-  var baseCol = 5; // 1-based position where cb fields start in E_Callback
-  function cbIdx(fieldName) { var p = cbHeader.indexOf(fieldName); return p < 0 ? -1 : (baseCol - 1 + 1 + p) - 1; }
+  // E_Callback: first 4 columns are: url, queued_at, applied_at, reason
+  function cbIdx(fieldName) { var p = cbHeader.indexOf(fieldName); return p < 0 ? -1 : 4 + p; }
   // Above returns a zero-based index relative to header array
   var iMyDeltaCb = cbIdx('my_rating_change');
   var iOppDeltaCb = cbIdx('opp_rating_change');
@@ -681,9 +698,7 @@ function applyCallbacksToCore() {
   var cbMap = {};
   for (var r = 0; r < vals.length; r++) {
     var v = vals[r];
-    var applied = v[iApplied - 1 + 1 - 1 + 1]; // keep as truthy check via header match
-    // Simpler: rely on position
-    applied = v[2];
+    var applied = v[iApplied]; // applied_at column
     var url = v[iUrl];
     if (!url || !applied) continue;
     var dMy = (iMyDeltaCb >= 0 ? v[iMyDeltaCb] : '');

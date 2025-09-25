@@ -318,8 +318,8 @@ function processCallbackBatch(maxN) {
   var vals = sheet.getRange(2,1,totalRows,sheet.getLastColumn()).getValues();
   for (var r=0; r<vals.length && picked.length<limit; r++) { if (!vals[r][iA]) picked.push({ row: 2+r, url: vals[r][iUrl] }); }
   if (!picked.length) return { applied: 0 };
-  var out = []; var tz = getDefaultTimezone();
-  for (var i=0;i<urls.length;i++) {
+  var out = []; var tz = getDefaultTimezone(); var processedUrls = [];
+  for (var i=0;i<picked.length;i++) {
     var url = picked[i].url; var id = url.split('/').pop(); var type = (url.indexOf('/game/daily/')>=0)?'daily':'live';
     var endpoint = type==='daily' ? ('https://www.chess.com/callback/daily/game/'+id) : ('https://www.chess.com/callback/live/game/'+id);
     try {
@@ -372,9 +372,14 @@ function processCallbackBatch(maxN) {
       out.push(rowVals);
       // Update Meta status for this url
       setMetaCallbackApplied(url, appliedTs, 'batch');
+      processedUrls.push(url);
     } catch (e) {}
   }
-  return { applied: out.length };
+  // Auto-refresh pinned fields in AllFields for processed urls
+  if (processedUrls.length) {
+    try { refreshAllFieldsForUrls(processedUrls, CALLBACK_PINNED_FIELDS); } catch (e) {}
+  }
+  return { applied: out.length, refreshed: processedUrls.length };
 }
 
 function enqueueCallbackUrls(urls, reason) {

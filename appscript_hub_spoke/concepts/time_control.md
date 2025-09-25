@@ -39,6 +39,14 @@ Examples (Live):
 - `chess960`: live buckets (bullet/blitz/rapid) → `live960`; daily → `daily960`.
 - Other variants (`bughouse`, `crazyhouse`, `kingofthehill`, `threecheck`): `format = rules` (time class collapsed).
 
+### Live vs Daily
+- Live: real-time play where both clocks run during the session; encompasses Bullet, Blitz, Rapid.
+- Daily: correspondence play with per-move allotments (e.g., `1/86400`), no live increment; players may move hours/days apart.
+- Sources:
+  - JSON: `time_control` string encodes live increments with `+` and daily with `/`.
+  - Callback: `isLiveGame` indicates live vs daily explicitly.
+  - Mapping: if `isLiveGame` is true → one of Bullet/Blitz/Rapid; if false → Daily.
+
 ### Clock mechanics summary
 - Each player has an independent clock; only the side to move is ticking.
 - With increment, after a player completes a move their clock increases by the increment amount.

@@ -17,6 +17,7 @@ Accuracy and performance (JSON analysis):
   - Use parsed increment from `TimeControl` (see `concepts/time_control.md`).
   - For the first move by a side, baseline is the base time.
   - Clamp negatives to zero to guard minor rounding noise.
+- You can also reconstruct a PGN-derived "move_timestamps" sequence (remaining time after each ply) by parsing `[%clk ...]` values from movetext. If `start_time_epoch` is known, absolute timestamps per ply can be estimated by walking backward from `end_time_epoch` and the per-move durations.
 - Each player has an independent clock. Clocks tick only when it is that player’s turn; moves alternate sides.
 
 ### Per-move time from callback timestamps

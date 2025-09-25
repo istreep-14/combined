@@ -17,7 +17,7 @@ rating_delta_white,,,(game.ratingChangeWhite),number,"Callback only","Exact delt
 rating_delta_black,,,(game.ratingChangeBlack),number,"Callback only","Exact delta; overlay last-based when non-zero"
 pgn_movetext,games[].pgn (body),Movetext, ,text,"PGN/Archive text is source of truth","Ignore callback moveList if not needed"
 moves_encoded,games[].tcn,,game.moveList,string,"Archive/Callback equivalent","Same encoding; optional if you keep PGN text"
-move_timestamps,,,[game.moveTimestamps],deciseconds,"Callback only","Remaining-time snapshots after moves; ÷10 → seconds"
+move_timestamps,derived from PGN [%clk],,game.moveTimestamps,seconds|deciseconds,"PGN-derived first; callback optional","PGN [%clk] yields remaining-time per ply (seconds); callback provides deciseconds (÷10 → seconds)"
 final_fen,games[].fen,, ,FEN,"Archive authoritative","Final position at game end"
 initial_setup,games[].initial_setup,FEN (when SetUp=1),game.initialSetup,FEN,"PGN/Archive equivalence","Present when SetUp=""1"""
 setup_flag,,SetUp,,string/boolean,"PGN primary","""1"" indicates non-standard initial position"

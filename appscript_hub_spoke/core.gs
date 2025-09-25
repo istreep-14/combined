@@ -5,7 +5,7 @@
 var HUB = { name: 'Games' };
 var SPOKES = {
   analysis: { name: 'AnalysisStaging' },
-  callback: { name: 'CallbackRaw' },
+  callback: { name: 'E_Callback' },
   all:      { name: 'AllFields' },
   meta:     { name: 'Meta' }
 };
@@ -18,19 +18,17 @@ var STATE = {
 function setupProject() {
   var hubSS = SpreadsheetApp.create('Hub - Games');
   var analysisSS = SpreadsheetApp.create('Spoke - Analysis');
-  var callbackSS = SpreadsheetApp.create('Spoke - Callback');
   var allSS = SpreadsheetApp.create('Spoke - AllFields');
   var metaSS = allSS; // Meta lives in the same AllFields spreadsheet
 
   var hubSheet = getOrCreateSheet(hubSS, HUB.name, getHeaderFor('hub'));
   var analysisSheet = getOrCreateSheet(analysisSS, SPOKES.analysis.name, getHeaderFor('spoke:analysis'));
-  var callbackSheet = getOrCreateSheet(callbackSS, SPOKES.callback.name, getHeaderFor('spoke:callback'));
+  var callbackSheet = getOrCreateSheet(allSS, SPOKES.callback.name, ['url','queued_at','applied_at','reason'].concat(getHeaderFor('spoke:callback')));
   var allSheet = getOrCreateSheet(allSS, SPOKES.all.name, getHeaderFor('all'));
   var metaSheet = getOrCreateSheet(metaSS, SPOKES.meta.name, getMetaHeader());
 
   PropertiesService.getScriptProperties().setProperty('HUB_ID', hubSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_ANALYSIS_ID', analysisSS.getId());
-  PropertiesService.getScriptProperties().setProperty('SPOKE_CALLBACK_ID', callbackSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_ALL_ID', allSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_META_ID', metaSS.getId());
 
@@ -38,7 +36,7 @@ function setupProject() {
   getOrCreateSheet(hubSS, 'ExportQueue', ['url','target','reason','queued_at']);
 
   return {
-    hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: callbackSS.getUrl(), allUrl: allSS.getUrl(), metaUrl: metaSS.getUrl()
+    hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: allSS.getUrl(), allUrl: allSS.getUrl(), metaUrl: metaSS.getUrl()
   };
 }
 
@@ -48,7 +46,7 @@ function getHubSS() {
 }
 
 function getSpokeSS(kind) {
-  var key = (kind === 'analysis') ? 'SPOKE_ANALYSIS_ID' : (kind === 'all' ? 'SPOKE_ALL_ID' : 'SPOKE_CALLBACK_ID');
+  var key = (kind === 'analysis') ? 'SPOKE_ANALYSIS_ID' : (kind === 'all' ? 'SPOKE_ALL_ID' : 'SPOKE_ALL_ID');
   if (kind === 'meta') key = 'SPOKE_META_ID';
   var id = PropertiesService.getScriptProperties().getProperty(key);
   return SpreadsheetApp.openById(id);
@@ -241,9 +239,9 @@ function exportNewGames(username, year, month) {
   // Write Meta rows (one per url)
   var metaRows = buildMetaRows(flat, res.etag || '', res.lastModified || '', year, month);
   writeMeta(metaRows);
-  // Queue exports for analysis and callback
-  var urls = flat.hub.map(function(r){ return r[0]; });
-  queueExports(urls, ['analysis','callback'], 'new');
+  // Auto-append callback queue entries in E_Callback
+  var urls = flat.hub.map(function(r){ return r[0]; }).filter(function(u){ return !!u; });
+  enqueueCallbackUrls(urls, 'new');
   return { written: flat.hub.length };
 }
 
@@ -308,56 +306,92 @@ function enqueueForCallback(urls) {
 }
 
 function processCallbackBatch(maxN) {
-  // Read from Hub ExportQueue for target 'callback'
-  var hub = getHubSS(); var q = getOrCreateSheet(hub, 'ExportQueue', ['url','target','reason','queued_at']);
-  var last = q.getLastRow(); if (last < 2) return { applied:0 };
-  var vals = q.getRange(2,1,last-1,4).getValues();
-  var urls = []; var idxs = [];
-  var limit = Math.max(1, maxN||20);
-  for (var i=0;i<vals.length && urls.length<limit;i++) { if (String(vals[i][1])==='callback') { urls.push(vals[i][0]); idxs.push(2+i); } }
-  if (!urls.length) return { applied: 0 };
-  var out = [];
+  // Read from E_Callback queue (AllFields spreadsheet): rows with empty applied_at
+  var ss = getSpokeSS('callback');
+  var sheet = getOrCreateSheet(ss, SPOKES.callback.name, ['url','queued_at','applied_at','reason'].concat(getHeaderFor('spoke:callback')));
+  var last = sheet.getLastRow(); if (last < 2) return { applied:0 };
+  var header = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  function idx(n){ for (var i=0;i<header.length;i++) if (String(header[i])===n) return i; return -1; }
+  var iUrl = idx('url'); var iQ = idx('queued_at'); var iA = idx('applied_at'); var iR = idx('reason');
+  var startRow = 2; var totalRows = last - 1; var limit = Math.max(1, maxN||20); var picked = [];
+  var vals = sheet.getRange(2,1,totalRows,sheet.getLastColumn()).getValues();
+  for (var r=0; r<vals.length && picked.length<limit; r++) { if (!vals[r][iA]) picked.push({ row: 2+r, url: vals[r][iUrl] }); }
+  if (!picked.length) return { applied: 0 };
+  var out = []; var tz = getDefaultTimezone();
   for (var i=0;i<urls.length;i++) {
-    var url = urls[i]; var id = url.split('/').pop(); var type = (url.indexOf('/game/daily/')>=0)?'daily':'live';
+    var url = picked[i].url; var id = url.split('/').pop(); var type = (url.indexOf('/game/daily/')>=0)?'daily':'live';
     var endpoint = type==='daily' ? ('https://www.chess.com/callback/daily/game/'+id) : ('https://www.chess.com/callback/live/game/'+id);
     try {
       var resp = UrlFetchApp.fetch(endpoint, { method:'get', muteHttpExceptions:true, headers: { 'User-Agent':'HubSpoke/1.0' }, followRedirects:true });
       var code = resp.getResponseCode(); if (code < 200 || code >= 300) continue;
       var json = JSON.parse(resp.getContentText()||'{}');
       var g = (json && json.game) || {}; var players = json && json.players || {};
-      var top = players.top || {}; var bottom = players.bottom || {};
+      var pgn = (json && json.pgnHeaders) || {};
+      var myColor = resolveMyColorFromCallback(pgn.White, pgn.Black);
+      // pick exact deltas by color
+      var myDelta = '';
+      var oppDelta = '';
+      if (myColor==='white') { myDelta = (g.ratingChangeWhite!==undefined?g.ratingChangeWhite:(g.ratingChange!==undefined?g.ratingChange:'')); oppDelta = (g.ratingChangeBlack!==undefined?g.ratingChangeBlack:(g.ratingChange!==undefined?-g.ratingChange:'')); }
+      else if (myColor==='black') { myDelta = (g.ratingChangeBlack!==undefined?g.ratingChangeBlack:(g.ratingChange!==undefined?g.ratingChange:'')); oppDelta = (g.ratingChangeWhite!==undefined?g.ratingChangeWhite:(g.ratingChange!==undefined?-g.ratingChange:'')); }
+      // pregame ratings by pgn color -> players.top/bottom chosen by color
+      var myPregame = '';
+      var oppPregame = '';
+      var meBlock = (players.top && players.top.color===myColor) ? players.top : ((players.bottom && players.bottom.color===myColor) ? players.bottom : {});
+      var oppColor = (myColor==='white'?'black':(myColor==='black'?'white':''));
+      var oppBlock = (players.top && players.top.color===oppColor) ? players.top : ((players.bottom && players.bottom.color===oppColor) ? players.bottom : {});
+      myPregame = meBlock && meBlock.rating || '';
+      oppPregame = oppBlock && oppBlock.rating || '';
       // Build row in registry order
       var values = {
         url: url,
-        my_rating_change: (g.ratingChangeWhite!==undefined?g.ratingChangeWhite:(g.ratingChange!==undefined?g.ratingChange:'')),
-        opp_rating_change: (g.ratingChangeBlack!==undefined?g.ratingChangeBlack:(g.ratingChange!==undefined?-g.ratingChange:'')),
-        my_pregame_rating: top.rating || bottom.rating || '',
-        opp_pregame_rating: '',
+        my_rating_change: (myDelta===''?'' : Number(myDelta)),
+        opp_rating_change: (oppDelta===''?'' : Number(oppDelta)),
+        my_pregame_rating: (myPregame===''?'' : Number(myPregame)),
+        opp_pregame_rating: (oppPregame===''?'' : Number(oppPregame)),
         result_message: g.resultMessage || '',
         ply_count: g.plyCount || '',
         base_time1: g.baseTime1 || '',
         time_increment1: g.timeIncrement1 || '',
         move_timestamps_ds: (g.moveTimestamps===undefined||g.moveTimestamps===null||g.moveTimestamps==='')?'':("'"+String(g.moveTimestamps)),
-        my_country: (top.countryName||bottom.countryName||''),
-        my_membership: (top.membershipCode||bottom.membershipCode||''),
-        my_default_tab: (top.defaultTab||bottom.defaultTab||''),
-        my_post_move_action: (top.postMoveAction||bottom.postMoveAction||''),
-        opp_country: '', opp_membership:'', opp_default_tab:'', opp_post_move_action:''
+        my_country: meBlock && meBlock.countryName || '',
+        my_membership: meBlock && meBlock.membershipCode || '',
+        my_default_tab: meBlock && meBlock.defaultTab || '',
+        my_post_move_action: meBlock && meBlock.postMoveAction || '',
+        opp_country: oppBlock && oppBlock.countryName || '',
+        opp_membership: oppBlock && oppBlock.membershipCode || '',
+        opp_default_tab: oppBlock && oppBlock.defaultTab || '',
+        opp_post_move_action: oppBlock && oppBlock.postMoveAction || ''
       };
-      var row = projectFields('spoke:callback', values);
-      out.push(row);
+      var cbHeader = getHeaderFor('spoke:callback');
+      var rowVals = cbHeader.map(function(k){ return values[k]!==undefined ? values[k] : ''; });
+      // write into E_Callback row: keep first 4 columns (url,queued_at,applied_at,reason) untouched (except applied_at)
+      var appliedTs = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+      sheet.getRange(picked[i].row, 3, 1, 1).setValue(appliedTs);
+      sheet.getRange(picked[i].row, 5, 1, rowVals.length).setValues([rowVals]);
+      out.push(rowVals);
+      // Update Meta status for this url
+      setMetaCallbackApplied(url, appliedTs, 'batch');
     } catch (e) {}
   }
-  if (out.length) {
-    var ss = getSpokeSS('callback');
-    var raw = getOrCreateSheet(ss, SPOKES.callback.name, getHeaderFor('spoke:callback'));
-    raw.getRange(raw.getLastRow()+1, 1, out.length, out[0].length).setValues(out);
-    // Drop processed queue lines from Hub ExportQueue (delete from bottom to top)
-    for (var d=idxs.length-1; d>=0; d--) q.deleteRow(idxs[d]);
-    // Mark hub enrichment status for these urls
-    setHubEnrichmentStatus(urls, 'callback', 'partial', 'callback_batch');
-  }
   return { applied: out.length };
+}
+
+function enqueueCallbackUrls(urls, reason) {
+  var ss = getSpokeSS('callback');
+  var sheet = getOrCreateSheet(ss, SPOKES.callback.name, ['url','queued_at','applied_at','reason'].concat(getHeaderFor('spoke:callback')));
+  var tz = getDefaultTimezone();
+  var nowStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+  var rows = (urls||[]).map(function(u){ return [u, nowStr, '', reason||'']; });
+  if (rows.length) sheet.getRange(sheet.getLastRow()+1, 1, rows.length, 4).setValues(rows);
+}
+
+function resolveMyColorFromCallback(pgnWhite, pgnBlack) {
+  var me = String(getDefaultUsername()||'').toLowerCase();
+  var w = String(pgnWhite||'').toLowerCase();
+  var b = String(pgnBlack||'').toLowerCase();
+  if (me && w===me) return 'white';
+  if (me && b===me) return 'black';
+  return '';
 }
 
 function queueExports(urls, targets, reason) {

@@ -106,7 +106,7 @@ function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt, etagOpt,
     // Core fields (simplified for starter)
     var timeClass = String(g.time_class || '').toLowerCase();
     var rules = String(g.rules || '').toLowerCase();
-    var format = (rules === 'chess' || !rules) ? timeClass : (rules + '-' + timeClass);
+    var format = deriveFormatSpec(rules, timeClass);
     var endEpoch = g.end_time || null;
     var startLocal = ''; var endLocal = '';
     var dateOnly = '';
@@ -216,6 +216,27 @@ function deriveEndReason(g) {
   var w = (g.white && g.white.result) || ''; var b = (g.black && g.black.result) || '';
   if (w === 'win') return b || 'win'; if (b === 'win') return w || 'win';
   return w || b || '';
+}
+
+// Derive format per user's spec:
+// - rules=chess => format = time_class
+// - rules=chess960 => bullet/blitz/rapid grouped to live960; daily -> daily960
+// - rules in {bughouse,crazyhouse,kingofthehill,threecheck} => format = rules (time_class collapsed)
+// - otherwise fallback to rules if present, else time_class
+function deriveFormatSpec(rules, timeClass) {
+  var r = String(rules||'').toLowerCase();
+  var t = String(timeClass||'').toLowerCase();
+  if (!r || r === 'chess') return t; // bullet|blitz|rapid|daily
+  if (r === 'chess960') {
+    if (t === 'daily') return 'daily960';
+    // treat bullet/blitz/rapid all as live960
+    if (t === 'bullet' || t === 'blitz' || t === 'rapid') return 'live960';
+    return 'live960';
+  }
+  var collapsed = { bughouse:true, crazyhouse:true, kingofthehill:true, threecheck:true };
+  if (collapsed[r]) return r;
+  // default fallback: prefer rules, else time_class
+  return r || t;
 }
 
 function writeHub(rows) {

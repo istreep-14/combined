@@ -78,6 +78,44 @@ function getDefaultTimezone() {
   return p.getProperty('TIMEZONE') || Session.getScriptTimeZone() || 'Etc/UTC';
 }
 
+// Per-month state (etag and last_url_seen)
+function monthKey(year, month) {
+  var mm = (Number(month) < 10 ? '0' : '') + String(Number(month));
+  return String(year) + '/' + mm;
+}
+
+function getMonthState(year, month) {
+  try {
+    var key = 'MONTH_STATE_' + monthKey(year, month).replace('/', '_');
+    var raw = PropertiesService.getScriptProperties().getProperty(key);
+    if (!raw) return { etag: '', last_url_seen: '' };
+    var obj = JSON.parse(raw);
+    return { etag: String(obj.etag||''), last_url_seen: String(obj.last_url_seen||'') };
+  } catch (e) {
+    return { etag: '', last_url_seen: '' };
+  }
+}
+
+function setMonthState(year, month, state) {
+  try {
+    var key = 'MONTH_STATE_' + monthKey(year, month).replace('/', '_');
+    var cur = getMonthState(year, month);
+    var next = { etag: state.etag || cur.etag || '', last_url_seen: state.last_url_seen || cur.last_url_seen || '' };
+    PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(next));
+  } catch (e) {}
+}
+
+function selectTailGames(games, lastUrlSeen) {
+  if (!games || !games.length) return [];
+  if (!lastUrlSeen) return games.slice();
+  var idx = -1;
+  for (var i=games.length-1; i>=0; i--) {
+    if (String(games[i] && games[i].url || '') === String(lastUrlSeen)) { idx = i; break; }
+  }
+  if (idx < 0) return games.slice();
+  return games.slice(idx + 1);
+}
+
 function fetchMonthArchive(username, year, month, etagOpt) {
   var mm = (month < 10 ? '0' : '') + String(month);
   var url = 'https://api.chess.com/pub/player/' + encodeURIComponent(username) + '/games/' + String(year) + '/' + mm;

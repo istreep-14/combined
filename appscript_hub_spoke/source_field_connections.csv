@@ -1,6 +1,6 @@
 concept,json_path,pgn_key,callback_path,type,notes
 game_url,games[].url,Link,,string,"PGN Link equals JSON url; primary key"
-pgn_full_text,games[].pgn,"(headers+movetext)",game.moveList + game.pgnHeaders,text,"Same PGN content expressed differently (JSON has full PGN string)"
+pgn_full_text,games[].pgn,"(headers+movetext)",game.moveList + game.pgnHeaders,text,"JSON holds full PGN string; callback moveList is an encoded equivalent of JSON tcn"
 time_control,games[].time_control,TimeControl,game.baseTime1|game.timeIncrement1,string|number,"JSON/PGN share string; callback splits into base/inc seconds"
 end_time_epoch,games[].end_time,EndTime,game.endTime,number|string,"JSON/Callback give epoch; PGN EndTime is local string"
 rated_flag,games[].rated,,game.isRated,boolean,"Rated flag across JSON and callback"
@@ -14,6 +14,7 @@ black_post_rating,games[].black.rating,BlackElo,players.{side=black}.rating,numb
 white_result_code,games[].white.result,Result,game.colorOfWinner|game.gameEndReason,string,"JSON has per-side code; PGN has 1-0/0-1; callback splits winner color and reason"
 black_result_code,games[].black.result,Result,game.colorOfWinner|game.gameEndReason,string,"Mirror of white; outcome implied by PGN token"
 eco,games[].eco,ECO|ECOUrl,game.pgnHeaders.ECO,string|url,"JSON has ECO url; PGN has ECO and ECOUrl; callback mirrors PGN headers"
+tcn_encoded,games[].tcn,,game.moveList,string,"TCN uses same encoding as callback moveList; treat as equivalent"
 event_name,,Event,game.pgnHeaders.Event,string,"PGN/Callback only"
 site,,Site,game.pgnHeaders.Site,string,"PGN/Callback only"
 date_local,,Date,game.pgnHeaders.Date,string,"Local date (PGN/Callback headers)"

@@ -26,6 +26,7 @@ Accuracy and performance (JSON analysis):
 
 Callback move encodings:
 - `game.moveList` is an internal encoded representation; not required if you keep PGN movetext. You can ignore it unless you need lower-level event reconstruction.
+- JSON `tcn` uses the same encoding as callback `game.moveList`; treat them as equivalent sources for encoded moves.
 - `game.lastMove` is a short marker string for UI/debug; treat as informational.
 - `game.turnColor` indicates whose turn it was at the capture/end. If a side was checkmated, `turnColor` may reflect the side that would have moved next absent checkmate (i.e., the mated side just moved and got mated by opponent, resulting in no further turn).
 

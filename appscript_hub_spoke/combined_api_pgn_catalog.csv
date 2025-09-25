@@ -1,0 +1,90 @@
+name,source,key_or_path,type,category,description,api_output,desired_output,transform_function
+json_url,json,games[].url,string,identity,"Canonical game URL (primary key)",url,url,
+json_pgn,json,games[].pgn,text,pgn,"Final PGN text including headers and moves",full PGN,full PGN,
+json_time_control,json,games[].time_control,string,time,"PGN-style time control","e.g. 60, 300+2, 1/86400",same,
+json_end_time_epoch,json,games[].end_time,number,time,End-of-game epoch seconds,epoch seconds,same,
+json_rated,json,games[].rated,boolean,metadata,Whether rated,true/false,true/false,
+json_accuracies_white,json,games[].accuracies.white,number,analysis,White accuracy percent,number,same,
+json_accuracies_black,json,games[].accuracies.black,number,analysis,Black accuracy percent,number,same,
+json_final_fen,json,games[].fen,string,board,Final position FEN,string,same,
+json_time_class,json,games[].time_class,string,time,"Time class label","e.g. blitz",lowercase,normalize_lowercase
+json_rules,json,games[].rules,string,variant,Variant/rules,"e.g. chess960",lowercase,normalize_lowercase
+json_white_rating,json,games[].white.rating,number,ratings,White post-game rating,number,same,
+json_white_result,json,games[].white.result,string,result,White result code,string,string,map_result_to_outcome
+json_white_id,json,games[].white.@id,string,identity,White profile URL,url,url,
+json_white_username,json,games[].white.username,string,identity,White username,string,string,
+json_white_uuid,json,games[].white.uuid,string,identity,White member UUID,uuid,uuid,
+json_black_rating,json,games[].black.rating,number,ratings,Black post-game rating,number,same,
+json_black_result,json,games[].black.result,string,result,Black result code,string,string,map_result_to_outcome
+json_black_id,json,games[].black.@id,string,identity,Black profile URL,url,url,
+json_black_username,json,games[].black.username,string,identity,Black username,string,string,
+json_black_uuid,json,games[].black.uuid,string,identity,Black member UUID,uuid,uuid,
+json_eco_url,json,games[].eco,string,opening,ECO URL if present,url,url,
+
+pgn_event,pgn,Event,string,metadata,Event name,string,string,
+pgn_site,pgn,Site,string,metadata,Site provider,string,string,
+pgn_date,pgn,Date,string,time,Local date of event,"yyyy.MM.dd",string,
+pgn_round,pgn,Round,string,metadata,Round indicator,string,string,
+pgn_white,pgn,White,string,identity,White username,string,string,
+pgn_black,pgn,Black,string,identity,Black username,string,string,
+pgn_result,pgn,Result,string,result,PGN result token,"1-0|0-1|1/2-1/2",string,
+pgn_current_position,pgn,CurrentPosition,string,board,Snapshot FEN at save time,FEN,FEN,
+pgn_timezone,pgn,Timezone,string,time,Timezone tag,string,string,
+pgn_eco,pgn,ECO,string,opening,ECO code,string,string,
+pgn_eco_url,pgn,ECOUrl,string,opening,ECO page url,url,url,
+pgn_utc_date,pgn,UTCDate,string,time,UTC date,"yyyy.MM.dd",string,
+pgn_utc_time,pgn,UTCTime,string,time,UTC time,"HH:MM:SS",string,
+pgn_white_elo,pgn,WhiteElo,number,ratings,White rating from PGN,number,number,
+pgn_black_elo,pgn,BlackElo,number,ratings,Black rating from PGN,number,number,
+pgn_time_control,pgn,TimeControl,string,time,Time control string from PGN,string,string,
+pgn_termination,pgn,Termination,string,termination,Human readable termination,string,string,
+pgn_start_time,pgn,StartTime,string,time,Local start time string,string,string,
+pgn_end_date,pgn,EndDate,string,time,Local end date,"yyyy.MM.dd",string,
+pgn_end_time,pgn,EndTime,string,time,Local end time string,string,string,
+pgn_link,pgn,Link,string,identity,Game link url,url,url,
+pgn_setup,pgn,SetUp,string,board,"Indicates non-standard initial position (""1"")","1 or empty","1 or empty",
+pgn_fen_initial,pgn,FEN,string,board,Initial board setup FEN,FEN,FEN,
+pgn_movetext,pgn,Movetext,text,pgn,Move body after headers,text,text,extract_pgn_moves
+
+# desired_fields below are typical outputs you compute/materialize (reference names)
+desired_format,derived,format,string,variant,"Canonical format bucket per spec","none","bullet|blitz|rapid|daily|live960|daily960|bughouse|crazyhouse|kingofthehill|threecheck",derive_format_spec
+desired_start_time_epoch,derived,UTCDate+UTCTime→epoch,number,time,Start time epoch from PGN UTC headers,UTC strings,epoch,utc_pgn_to_epoch
+desired_start_time_local,derived,epoch→local,string,time,Start time local string,epoch,"yyyy-MM-dd HH:mm:ss",to_local_datetime
+desired_end_time_local,derived,end_time_epoch→local,string,time,End time local string,epoch,"yyyy-MM-dd HH:mm:ss",to_local_datetime
+desired_date,derived,end_time_local→date,string,time,Local date,"yyyy-MM-dd","yyyy-MM-dd",extract_date
+desired_base_time,derived,time_control→base,number,time,Base time seconds,string,number,parse_time_control
+desired_increment,derived,time_control→inc,number,time,Increment seconds,string,number,parse_time_control
+desired_corr_time,derived,time_control→corr,number,time,Correspondence seconds per move,string,number,parse_time_control
+desired_my_color,derived,username match,string,identity,My color by matching configured username to PGN names,"white/black or empty","white/black",identity_my_color
+desired_my_rating_end,derived,from JSON by my_color,number,ratings,Mine post-game rating,number,number,select_by_color
+desired_opp_rating_end,derived,from JSON by opp_color,number,ratings,Opponent post-game rating,number,number,select_by_color
+desired_my_outcome,derived,map result,string,result,My outcome from my result code,string,"win|loss|draw",map_result_to_outcome
+desired_opp_outcome,derived,map result,string,result,Opponent outcome from opp result code,string,"win|loss|draw",map_result_to_outcome
+desired_end_reason,derived,loser policy,string,termination,"Loser raw result (draw uses draw code)",result codes,string,end_reason_policy
+desired_my_pregame_last,derived,last-based pregame,number,ratings,My pregame rating inferred from last per format,number or blank,number,last_based_delta
+desired_my_delta_last,derived,last-based delta,number,ratings,My delta based on last rating per format,number or blank,number,last_based_delta
+desired_opp_pregame_last,derived,last-based pregame,number,ratings,Opponent pregame inferred from delta and opp end,number or blank,number,last_based_delta
+desired_opp_delta_last,derived,last-based delta,number,ratings,Opponent delta inferred as negative of my delta,number or blank,number,last_based_delta
+desired_my_pregame_cb,derived,callback pregame,number,ratings,My pregame rating from callback,number or blank,number,callback_overlay
+desired_my_delta_cb,derived,callback delta,number,ratings,My exact delta from callback,number or blank,number,callback_overlay
+desired_opp_pregame_cb,derived,callback pregame,number,ratings,Opponent pregame rating from callback,number or blank,number,callback_overlay
+desired_opp_delta_cb,derived,callback delta,number,ratings,Opponent exact delta from callback,number or blank,number,callback_overlay
+desired_my_delta,derived,final selection,number,ratings,Final delta choosing callback when non-zero,number,number,final_delta_select
+desired_opp_delta,derived,final selection,number,ratings,Final delta choosing callback when non-zero,number,number,final_delta_select
+
+
+function_name,purpose,input_fields,output_fields,simple_explanation
+normalize_lowercase,"Normalize a string to lowercase and trim","any string","lowercased string","Make labels consistent by forcing them to lowercase"
+parse_time_control,"Parse a PGN time control into base/inc/corr","time_control string","base_time, increment, correspondence_time","Split on '+' or '/' to pull out base seconds, increment, or correspondence seconds"
+utc_pgn_to_epoch,"Convert UTCDate+UTCTime to epoch seconds","UTCDate, UTCTime","start_time_epoch","Combine date and time and parse as UTC to get a numeric timestamp"
+to_local_datetime,"Format an epoch as local datetime","epoch seconds","yyyy-MM-dd HH:mm:ss","Turn a numeric timestamp into a local time string"
+extract_date,"Get yyyy-MM-dd from a datetime string","local datetime","date","Just keep the date part from a timestamp"
+identity_my_color,"Resolve my color by configured username","config USERNAME, PGN White, PGN Black","my_color","If my username equals White then I'm white; if equals Black then I'm black"
+select_by_color,"Pick the right player's field by color","white.*, black.*, my_color","my fields (rating/result) or opp fields","Choose white or black data depending on my_color"
+map_result_to_outcome,"Map result codes to win/loss/draw","result code","outcome","Translate engine codes like 'checkmated', 'timeout' to win/loss/draw"
+end_reason_policy,"Compute end_reason per loser policy","white.result, black.result","end_reason","Pick the losing side's raw result; for draws use the draw code"
+derive_format_spec,"Derive canonical format from rules+time_class","rules, time_class","format","Use your rule: chess → time_class; chess960 → live960/daily960; variants → rule name"
+extract_pgn_moves,"Extract movetext after headers","full PGN","pgn_moves","Skip the header lines (square brackets) then return the move text"
+callback_overlay,"Read callback pregame and exact delta","callback JSON","my/opp pregame_cb, delta_cb","Use callback endpoints to populate accurate rating changes"
+last_based_delta,"Compute last-based pregame and delta per format","format, my_rating_end, stored last","my/opp pregame_last, delta_last","Remember the last rating seen for each format and subtract to get the change"
+final_delta_select,"Choose final delta preferring callback when non-zero","delta_cb, delta_last","final delta","If callback delta exists and isn't zero, use it, otherwise keep the last-based one"

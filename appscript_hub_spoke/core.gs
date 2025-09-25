@@ -247,7 +247,26 @@ function deriveFormatSpec(rules, timeClass) {
 
 function writeHub(rows) {
   var ss = getHubSS(); var sh = getOrCreateSheet(ss, HUB.name, getHeaderFor('hub'));
-  if (rows && rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
+  if (!rows || !rows.length) return;
+  // Upsert-by-url to avoid duplicates and keep count aligned with AllFields (which collapses by URL)
+  var headerLen = sh.getLastColumn() || rows[0].length;
+  var last = sh.getLastRow();
+  var urlToRow = {};
+  if (last >= 2) {
+    var urls = sh.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < urls.length; i++) { var u = urls[i][0]; if (u && urlToRow[u] === undefined) urlToRow[String(u)] = 2 + i; }
+  }
+  var toAppend = [];
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r]; var url = row && row[0]; if (!url) continue;
+    var at = urlToRow[String(url)];
+    if (at) {
+      sh.getRange(at, 1, 1, headerLen).setValues([row.slice(0, headerLen)]);
+    } else {
+      toAppend.push(row);
+    }
+  }
+  if (toAppend.length) sh.getRange(sh.getLastRow()+1, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
 }
 
 function writeSpoke(kind, rows) {
@@ -261,7 +280,10 @@ function exportNewGames(username, year, month) {
   var res = fetchMonthArchive(username, year, month, null);
   if (res.status !== 'ok' || !res.json) return { written:0 };
   var flat = flattenArchiveToRows(username, res.json, year, month, res.etag || '', res.lastModified || '');
-  writeHub(flat.hub);
+  // Dedupe hub rows by URL before write/upsert
+  var seen = {}; var hubDedup = [];
+  for (var i=0;i<flat.hub.length;i++) { var u = flat.hub[i][0]; if (!u || seen[u]) continue; seen[u]=true; hubDedup.push(flat.hub[i]); }
+  writeHub(hubDedup);
   writeSpoke('analysis', flat.analysis);
   // Build and write the single wide AllFields row set from registry union
   var allRows = buildAllFieldsRows(flat, res.etag || '', res.lastModified || '', year, month);
@@ -272,7 +294,7 @@ function exportNewGames(username, year, month) {
   // Auto-append callback queue entries in E_Callback
   var urls = flat.hub.map(function(r){ return r[0]; }).filter(function(u){ return !!u; });
   enqueueCallbackUrls(urls, 'new');
-  return { written: flat.hub.length };
+  return { written: hubDedup.length };
 }
 
 function buildAllFieldsRows(flat, etag, lastMod, year, month) {
@@ -581,15 +603,19 @@ function materializeCoreFromAllFields(maxRows) {
   var iMyEnd = headerIdx['my_rating_end'];
   var iOppEnd = headerIdx['opp_rating_end'];
   var totalRows = last - startAt + 1;
-  var limit = maxRows ? Math.min(totalRows, Math.max(1, Number(maxRows))) : totalRows;
-  var values = allSheet.getRange(startAt, 1, limit, allSheet.getLastColumn()).getValues();
+  var perBatch = Math.max(50, Math.min(2000, Number(maxRows||500))); // default 500, cap to avoid timeouts
+  var processed = 0;
 
   var coreSS = allSS; // keep Core in the same spreadsheet as AllFields
   var coreSheet = getOrCreateSheet(coreSS, 'Core', getCoreHeader());
 
-  var out = [];
-  for (var r = 0; r < values.length; r++) {
-    var row = values[r];
+  var cursor = startAt;
+  while (cursor <= last && processed < totalRows) {
+    var take = Math.min(perBatch, last - cursor + 1);
+    var values = allSheet.getRange(cursor, 1, take, allSheet.getLastColumn()).getValues();
+    var out = [];
+    for (var r = 0; r < values.length; r++) {
+      var row = values[r];
     var url = row[iUrl]; if (!url) continue;
     var date = row[iDate] || '';
     var fmt = row[iFmt] || '';
@@ -622,12 +648,15 @@ function materializeCoreFromAllFields(maxRows) {
       (oppDeltaLast === '' ? '' : Number(oppDeltaLast)) // opp_delta (final)
     ];
     out.push(coreRow);
+    }
+    if (out.length) upsertCoreRows(coreSheet, out);
+    processed += take;
+    cursor += take;
+    coreCursorSet(cursor - 1);
+    // Yield time to avoid hard 6-min limit
+    Utilities.sleep(50);
   }
-
-  if (out.length) upsertCoreRows(coreSheet, out);
-  // advance cursor
-  coreCursorSet(startAt + values.length - 1);
-  return out.length;
+  return processed;
 }
 
 // Overlay callback deltas (when non-zero) into Core and set final display deltas

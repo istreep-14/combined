@@ -88,3 +88,40 @@ extract_pgn_moves,"Extract movetext after headers","full PGN","pgn_moves","Skip 
 callback_overlay,"Read callback pregame and exact delta","callback JSON","my/opp pregame_cb, delta_cb","Use callback endpoints to populate accurate rating changes"
 last_based_delta,"Compute last-based pregame and delta per format","format, my_rating_end, stored last","my/opp pregame_last, delta_last","Remember the last rating seen for each format and subtract to get the change"
 final_delta_select,"Choose final delta preferring callback when non-zero","delta_cb, delta_last","final delta","If callback delta exists and isn't zero, use it, otherwise keep the last-based one"
+
+connections_relation,field_a,field_b,connection_type,notes
+equivalent,json_url,pgn_link,equality,"Both are the same canonical game URL; use as primary key"
+derived_equivalence,pgn_white,json_white_username,identity,"Same username from different sources: PGN header versus JSON"
+derived_equivalence,pgn_black,json_black_username,identity,"Same username from different sources: PGN header versus JSON"
+equivalent,pgn_time_control,json_time_control,equality,"PGN TimeControl mirrors JSON time_control"
+overlap,pgn_white_elo,desired_my_pregame_cb,fallback,"PGN Elo may seed pregame when callback is missing"
+distinct,pgn_fen_initial,json_final_fen,semantics,"Initial setup FEN (when SetUp=1) vs final position FEN"
+composed,pgn_utc_date+pgn_utc_time,desired_start_time_epoch,transform,"Combine and parse UTCDate+UTCTime to epoch"
+composed,desired_start_time_epoch,desired_start_time_local,transform,"Format epoch to local datetime string"
+composed,json_end_time_epoch,desired_end_time_local,transform,"Format end epoch to local datetime string"
+derived,json_rules+json_time_class,desired_format,transform,"Apply canonical mapping rules to derive format bucket"
+policy,json_white_result+json_black_result,desired_end_reason,policy,"Pick loser-side raw code; for draws use a draw code"
+selection,json_white_rating+json_black_rating,desired_my_rating_end,selection,"Choose by my_color resolved from configured USERNAME"
+selection,json_white_rating+json_black_rating,desired_opp_rating_end,selection,"Choose the opposite of my_color"
+override,desired_my_delta_last,desired_my_delta,selection,"Use callback delta when non-zero; else last-based delta"
+inverse,desired_my_delta_last,desired_opp_delta_last,negation,"Opponent delta is typically negative of my delta"
+
+# examples: format derivation, identity resolution, rating deltas
+example_id,description,input_fields,input_values,expected_fields,expected_values
+fmt1,"rules=chess, time_class=blitz","json_rules,json_time_class","chess,blitz","desired_format","blitz"
+fmt2,"rules=chess960, time_class=bullet","json_rules,json_time_class","chess960,bullet","desired_format","live960"
+fmt3,"rules=chess960, time_class=daily","json_rules,json_time_class","chess960,daily","desired_format","daily960"
+fmt4,"rules=crazyhouse (any time_class)","json_rules,json_time_class","crazyhouse,blitz","desired_format","crazyhouse"
+id1,"USERNAME matches PGN White","USERNAME,pgn_white,pgn_black","ians141,ians141,badjaeaux8","desired_my_color","white"
+id2,"USERNAME matches PGN Black","USERNAME,pgn_white,pgn_black","ians141,badjaeaux8,ians141","desired_my_color","black"
+delta1,"last-based delta simple","desired_format,stored_last,my_end","blitz,1840,1844","desired_my_pregame_last|desired_my_delta_last","1840|4"
+delta2,"opp derived from my delta","opp_end,my_delta_last","1839,4","desired_opp_pregame_last|desired_opp_delta_last","1835|-4"
+cb1,"callback overrides non-zero","my_delta_last,my_delta_cb","4,5","desired_my_delta","5"
+cb2,"callback zero keeps last","my_delta_last,my_delta_cb","-3,0","desired_my_delta","-3"
+
+# constants: canonical formats and result code mapping
+constant_type,key,value,notes
+format,canonical,"bullet|blitz|rapid|daily|live960|daily960|bughouse|crazyhouse|kingofthehill|threecheck","Output buckets for desired_format"
+result,win_codes,"win","Outcome when side's result is 'win'"
+result,loss_codes,"checkmated|timeout|resigned|abandoned|lose","Common loss result tokens"
+result,draw_codes,"agreed|repetition|stalemate|insufficient|50move|timevsinsufficient|draw","Draw-family tokens"

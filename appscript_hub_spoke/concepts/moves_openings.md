@@ -63,6 +63,7 @@ Callback move encodings:
   - `ply_count` (number): derived or from callback
   - `move_timestamps_array` (csv string): remaining time after each ply, seconds, comma-separated
   - `per_move_time_array` (csv string): time spent per ply, seconds, comma-separated
+  - Note: per-move time must add increment: prev_remaining − curr_remaining + increment_seconds (clamped ≥ 0)
   - `avg_move_time_seconds_white`, `avg_move_time_seconds_black` (numbers): convenient aggregates
 - Opening
   - `eco_code` (string), `eco_url` (url), `eco_name` (string; optional enrichment)

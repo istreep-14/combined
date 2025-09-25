@@ -1,6 +1,6 @@
 ## Time: start, end, localization, and duration
 
-This document outlines how to get game start/end times, how to localize and format them, how to derive duration, and which convenient fields to materialize for analysis. Priority is JSON/PGN; callback is optional enrichment.
+This document outlines how to get game start/end times, how to localize and format them, how to derive duration, and which convenient fields to materialize for analysis. Priority is JSON/PGN; callback is optional enrichment. Avoid overlapping fields that say the same thing (e.g., prefer `live_vs_daily` over duplicative `is_correspondence`).
 
 ### Primary sources (JSON/PGN-first)
 - JSON end time (authoritative): `games[].end_time` (epoch seconds)

@@ -58,8 +58,11 @@ Callback move encodings:
 ### Suggested normalized fields
 - Moves and timing
   - `pgn_moves` (text): movetext extracted from PGN (no headers)
+  - `pgn_moves_text` (text): single-line normalized movetext (e.g., `1. e4 d5 2. Nc3 ...`)
+  - `moves_array` (csv string): SAN moves in ply order, comma-separated
   - `ply_count` (number): derived or from callback
-  - `per_move_time_seconds_white[]`, `per_move_time_seconds_black[]` (arrays or serialized): from PGN clocks or callback timestamps
+  - `move_timestamps_array` (csv string): remaining time after each ply, seconds, comma-separated
+  - `per_move_time_array` (csv string): time spent per ply, seconds, comma-separated
   - `avg_move_time_seconds_white`, `avg_move_time_seconds_black` (numbers): convenient aggregates
 - Opening
   - `eco_code` (string), `eco_url` (url), `eco_name` (string; optional enrichment)

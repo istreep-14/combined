@@ -1,0 +1,45 @@
+field_name,category,definition,source_fields,units,notes
+date,time,"End-of-game local date (yyyy-MM-dd)",end_time_epoch→local,yyyy-MM-dd,"JSON end_time primary; localize to project TZ"
+year,time,"YYYY of end-of-game",end_time_local,string,
+year_month,time,"YYYY-MM of end-of-game",end_time_local,string,
+month,time,"MM of end-of-game",end_time_local,string,
+day,time,"DD of end-of-game",end_time_local,string,
+weekday,time,"1-7 ISO or Mon..Sun",end_time_local,string,
+week_iso,time,"ISO week number",end_time_local,number,
+hour,time,"HH of end-of-game",end_time_local,string,
+minute,time,"mm of end-of-game",end_time_local,string,
+second,time,"ss of end-of-game",end_time_local,string,
+end_time,time,"HH:mm:ss time-of-day",end_time_local,string,
+live_vs_daily,time,"live or daily",time_control|string:time_class,string,"'+' → live, '/' → daily; callback isLiveGame optional"
+base_seconds,time_control,"Base time parsed to seconds",time_control or callback baseTime1,seconds,"Use JSON/PGN parse; callback deciseconds/10"
+increment_seconds,time_control,"Increment parsed to seconds",time_control or callback timeIncrement1,seconds,"Use JSON/PGN parse; callback deciseconds/10"
+has_increment,time_control,"Increment > 0",increment_seconds,boolean,
+played_white,identity,"USERNAME equals PGN White",USERNAME,boolean,
+played_black,identity,"USERNAME equals PGN Black",USERNAME,boolean,
+my_color,identity,"white or black per USERNAME",USERNAME+PGN White/Black,string,
+opp_color,identity,"inverse of my_color",my_color,string,
+my_username,identity,"Resolved from USERNAME vs PGN",USERNAME+PGN,string,
+opp_username,identity,"Opponent username",USERNAME+PGN,string,
+membership_code_white,player,"Membership code (white)",callback players.white.membershipCode,string,"Optional"
+membership_code_black,player,"Membership code (black)",callback players.black.membershipCode,string,"Optional"
+membership_level_white,player,"Membership level (white)",callback players.white.membershipLevel,number,"Optional"
+membership_level_black,player,"Membership level (black)",callback players.black.membershipLevel,number,"Optional"
+membership_code_my,player,"Membership code (my perspective)",membership_code_white/black + my_color,string,
+membership_code_opp,player,"Membership code (opp perspective)",membership_code_white/black + my_color,string,
+membership_level_my,player,"Membership level (my perspective)",membership_level_white/black + my_color,number,
+membership_level_opp,player,"Membership level (opp perspective)",membership_level_white/black + my_color,number,
+in_tournament,event,"Has tournament link",tournament_url,boolean,
+in_match,event,"Has match link",match_url,boolean,
+standard_result_string,result,"1-0|0-1|1/2-1/2",JSON per-side or PGN Result,string,
+standard_result_numeric_white,result,"1|0|0.5",standard_result_string,number,
+my_result_numeric,result,"1|0|0.5 (perspective)",standard_result_numeric_white+my_color,number,
+my_outcome_text,result,"win|loss|draw",my_result_numeric,string,
+opp_outcome_text,result,"win|loss|draw",my_outcome_text,string,
+timeout_flag,result,"loser ended by timeout",end_reason_code,boolean,
+resigned_flag,result,"loser ended by resignation",end_reason_code,boolean,
+checkmated_flag,result,"loser ended by checkmate",end_reason_code,boolean,
+abandoned_flag,result,"loser ended by abandon",end_reason_code,boolean,
+pgn_moves_text,moves,"Movetext normalized in one line",PGN movetext,string,"e.g., '1. e4 d5 2. Nc3 ...'"
+moves_array,moves,"Moves as comma-separated SAN list",PGN movetext,string,"Extract SAN tokens in ply order"
+move_timestamps_array,moves,"Remaining time per ply (seconds) as comma-separated list",PGN [%clk] or callback moveTimestamps,string,"PGN preferred; callback deciseconds/10"
+per_move_time_array,moves,"Per-move time (seconds) per ply as comma-separated list",derived from timestamps+increment,string,"prev_remaining - curr_remaining + increment"

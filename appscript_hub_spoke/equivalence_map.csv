@@ -15,6 +15,8 @@ white_post_rating,games[].white.rating,WhiteElo,players.{color=white}.rating,num
 black_post_rating,games[].black.rating,BlackElo,players.{color=black}.rating,number,"Archive/PGN equality; callback confirm","Post-game ratings across sources should match"
 rating_delta_white,,,(game.ratingChangeWhite),number,"Callback only","Exact delta; overlay last-based when non-zero"
 rating_delta_black,,,(game.ratingChangeBlack),number,"Callback only","Exact delta; overlay last-based when non-zero"
+rating_delta_my,,,(game.ratingChangeWhite|Black via my_color),number,"Callback only","Perspective pick by my_color"
+rating_delta_opp,,,(game.ratingChangeWhite|Black via my_color),number,"Callback only","Opposite of my perspective"
 pgn_movetext,games[].pgn (body),Movetext, ,text,"PGN/Archive text is source of truth","Ignore callback moveList if not needed"
 moves_encoded,games[].tcn,,game.moveList,string,"Archive/Callback equivalent","Same encoding; optional if you keep PGN text"
 move_timestamps,derived from PGN [%clk],,game.moveTimestamps,seconds|deciseconds,"PGN-derived first; callback optional","PGN [%clk] yields remaining-time per ply (seconds); callback provides deciseconds (÷10 → seconds)"

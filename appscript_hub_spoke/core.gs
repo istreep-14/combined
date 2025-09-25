@@ -15,6 +15,9 @@ var STATE = {
   INGEST_VERSION: 'v1.0'
 };
 
+// In-memory cache for frequently read properties
+var MEM = { configuredUsername: null };
+
 function setupProject() {
   var hubSS = SpreadsheetApp.create('Hub - Games');
   var analysisSS = SpreadsheetApp.create('Spoke - Analysis');
@@ -73,8 +76,11 @@ function setDefaults() {
 }
 
 function getDefaultUsername() {
+  if (MEM.configuredUsername !== null) return MEM.configuredUsername;
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('USERNAME') || '';
+  var u = p.getProperty('USERNAME') || '';
+  MEM.configuredUsername = u;
+  return u;
 }
 
 function getDefaultTimezone() {

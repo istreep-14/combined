@@ -13,6 +13,7 @@ var STATE = {
   SCHEMA_VERSION: 'v1.0',
   INGEST_VERSION: 'v1.0'
 };
+var CALLBACK_PINNED_FIELDS = ['result_message','ply_count'];
 
 function setupProject() {
   var hubSS = SpreadsheetApp.create('Hub - Games');
@@ -400,6 +401,68 @@ function queueExports(urls, targets, reason) {
     }
   }
   if (rows.length) q.getRange(q.getLastRow()+1, 1, rows.length, 4).setValues(rows);
+}
+
+function setMetaCallbackApplied(url, appliedTs, reason) {
+  var ss = getSpokeSS('meta'); var sh = getOrCreateSheet(ss, SPOKES.meta.name, getMetaHeader());
+  var last = sh.getLastRow(); if (last < 2) return;
+  var header = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+  function idx(n){ for (var i=0;i<header.length;i++) if (String(header[i])===n) return i; return -1; }
+  var iUrl = 0; var iCB = idx('callback_status'); var iCA = idx('callback_applied_at'); var iCR = idx('callback_reason');
+  var iLEA = idx('last_enrichment_applied_at'); var iLER = idx('last_enrichment_reason');
+  var vals = sh.getRange(2,1,last-1,sh.getLastColumn()).getValues();
+  for (var r=0;r<vals.length;r++) {
+    if (String(vals[r][iUrl]) === String(url)) {
+      if (iCB>=0) vals[r][iCB] = 'complete';
+      if (iCA>=0) vals[r][iCA] = appliedTs || '';
+      if (iCR>=0) vals[r][iCR] = reason || '';
+      if (iLEA>=0) vals[r][iLEA] = appliedTs || '';
+      if (iLER>=0) vals[r][iLER] = reason || '';
+      sh.getRange(2+r,1,1,sh.getLastColumn()).setValues([vals[r]]);
+      return;
+    }
+  }
+}
+
+function refreshAllFieldsForUrls(urls, pinned) {
+  var list = (urls||[]).filter(function(u){ return !!u; });
+  if (!list.length) return { updated: 0 };
+  var fields = (pinned && pinned.length) ? pinned.slice() : CALLBACK_PINNED_FIELDS.slice();
+  var tz = getDefaultTimezone();
+  var ssAll = getSpokeSS('all');
+  var allSheet = getOrCreateSheet(ssAll, SPOKES.all.name, getHeaderFor('all'));
+  var allHeader = allSheet.getRange(1,1,1,allSheet.getLastColumn()).getValues()[0];
+  function aidx(n){ for (var i=0;i<allHeader.length;i++) if (String(allHeader[i])===n) return i; return -1; }
+  var urlToRow = {};
+  var lastAll = allSheet.getLastRow(); if (lastAll < 2) return { updated: 0 };
+  var allUrls = allSheet.getRange(2,1,lastAll-1,1).getValues();
+  for (var r=0;r<allUrls.length;r++) { var u = allUrls[r][0]; if (u) urlToRow[String(u)] = 2 + r; }
+  var cbSheet = getOrCreateSheet(ssAll, SPOKES.callback.name, ['url','queued_at','applied_at','reason'].concat(getHeaderFor('spoke:callback')));
+  var cbHeader = cbSheet.getRange(1,1,1,cbSheet.getLastColumn()).getValues()[0];
+  function cidx(n){ for (var i=0;i<cbHeader.length;i++) if (String(cbHeader[i])===n) return i; return -1; }
+  var lastCb = cbSheet.getLastRow(); if (lastCb < 2) return { updated: 0 };
+  var cbRows = cbSheet.getRange(2,1,lastCb-1,cbSheet.getLastColumn()).getValues();
+  var cbMap = {}; var cbUrlIdx = cidx('url');
+  for (var j=0;j<cbRows.length;j++) { var url = String(cbRows[j][cbUrlIdx]||''); if (!url) continue; var obj = {}; for (var k=0;k<cbHeader.length;k++) obj[cbHeader[k]] = cbRows[j][k]; cbMap[url]=obj; }
+  var updated = 0;
+  for (var i=0;i<list.length;i++) {
+    var url = String(list[i]); var rowIndex = urlToRow[url]; var cb = cbMap[url]; if (!rowIndex || !cb) continue;
+    var rowVals = allSheet.getRange(rowIndex, 1, 1, allSheet.getLastColumn()).getValues()[0];
+    var changed = false;
+    for (var f=0; f<fields.length; f++) {
+      var name = fields[f]; var col = aidx(name); var val = cb[name];
+      if (col >= 0 && val !== undefined && val !== null && String(val) !== '') {
+        if (rowVals[col] !== val) { rowVals[col] = val; changed = true; }
+      }
+    }
+    if (changed) {
+      allSheet.getRange(rowIndex, 1, 1, rowVals.length).setValues([rowVals]);
+      var appliedTs = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+      setMetaCallbackApplied(url, appliedTs, 'refresh_pin');
+      updated++;
+    }
+  }
+  return { updated: updated };
 }
 
 function setHubEnrichmentStatus(urls, target, status, reason) {

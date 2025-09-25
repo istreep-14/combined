@@ -93,6 +93,8 @@ function getHeaderFor(target) {
     arr = FIELD_REGISTRY.filter(function(f){ return f.write_to==='spoke:analysis'; });
   } else if (target === 'spoke:callback') {
     arr = FIELD_REGISTRY.filter(function(f){ return f.write_to==='spoke:callback'; });
+  } else if (target === 'allgames_core') {
+    arr = FIELD_REGISTRY.filter(function(f){ return f.write_to==='hub' && f.is_core; });
   } else if (target === 'all') {
     // union: hub + analysis + callback (unique names)
     var names = {};
@@ -112,5 +114,17 @@ function getHeaderFor(target) {
     arr = [];
   }
   return arr.map(function(f){ return f.name; });
+}
+
+function getMetaHeader() {
+  return [
+    'url',
+    'archive_year','archive_month','archive_etag','archive_last_modified',
+    'archive_sig','pgn_sig','schema_version','ingest_version',
+    'last_ingested_at','last_rechecked_at',
+    'enrichment_status','enrichment_targets','last_enrichment_applied_at','last_enrichment_reason','notes',
+    // per-enrichment status blocks (start with callback)
+    'callback_status','callback_queued_at','callback_applied_at','callback_reason'
+  ];
 }
 

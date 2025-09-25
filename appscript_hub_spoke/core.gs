@@ -34,9 +34,6 @@ function setupProject() {
   PropertiesService.getScriptProperties().setProperty('SPOKE_ALL_ID', allSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_META_ID', metaSS.getId());
 
-  // Create Hub ExportQueue
-  getOrCreateSheet(hubSS, 'ExportQueue', ['url','target','reason','queued_at']);
-
   return {
     hubUrl: hubSS.getUrl(), callbackUrl: allSS.getUrl(), allUrl: allSS.getUrl(), metaUrl: metaSS.getUrl()
   };
@@ -218,21 +215,68 @@ function deriveEndReason(g) {
 }
 
 function writeHub(rows) {
-  var ss = getHubSS(); var sh = getOrCreateSheet(ss, HUB.name, getHeaderFor('hub'));
-  if (rows && rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
+  if (!rows || !rows.length) return;
+  var ss = getHubSS(); var header = getHeaderFor('allgames_core');
+  var sh = getOrCreateSheet(ss, HUB.name, header);
+  upsertByUrl(sh, header, rows);
 }
 
 function writeSpoke(kind, rows) {
+  if (!rows || !rows.length) return;
   var ss = getSpokeSS(kind);
   var headerKey = (kind==='all') ? 'all' : ('spoke:'+kind);
-  var sheetName = SPOKES[kind].name; var sh = getOrCreateSheet(ss, sheetName, getHeaderFor(headerKey));
-  if (rows && rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
+  var header = getHeaderFor(headerKey);
+  var sheetName = SPOKES[kind].name; var sh = getOrCreateSheet(ss, sheetName, header);
+  upsertByUrl(sh, header, rows);
+}
+
+// Upsert rows by url into a sheet with the given header order
+function upsertByUrl(sheet, header, rows) {
+  if (!rows || !rows.length) return;
+  var last = sheet.getLastRow();
+  var urlToRow = {};
+  if (last >= 2) {
+    var urls = sheet.getRange(2, 1, last - 1, 1).getValues();
+    for (var i=0;i<urls.length;i++) {
+      var u = urls[i][0]; if (u && urlToRow[u] === undefined) urlToRow[u] = 2 + i;
+    }
+  }
+  var batchUpdate = [];
+  var batchRanges = [];
+  var toAppend = [];
+  for (var r=0;r<rows.length;r++) {
+    var url = rows[r][0]; if (!url) continue;
+    var at = urlToRow[url];
+    if (at) {
+      batchUpdate.push(rows[r]);
+      batchRanges.push(at);
+    } else {
+      toAppend.push(rows[r]);
+    }
+  }
+  // Perform updates
+  for (var j=0;j<batchRanges.length;j++) {
+    sheet.getRange(batchRanges[j], 1, 1, header.length).setValues([batchUpdate[j]]);
+  }
+  // Append new
+  if (toAppend.length) {
+    sheet.getRange(sheet.getLastRow()+1, 1, toAppend.length, header.length).setValues(toAppend);
+  }
 }
 
 function exportNewGames(username, year, month) {
-  var res = fetchMonthArchive(username, year, month, null);
+  var state = getMonthState(year, month);
+  var res = fetchMonthArchive(username, year, month, state.etag || null);
+  if (res.status === 'not_modified') return { written: 0, message: 'not modified' };
   if (res.status !== 'ok' || !res.json) return { written:0 };
-  var flat = flattenArchiveToRows(username, res.json, year, month, res.etag || '', res.lastModified || '');
+  // Select tail after last_url_seen
+  var tailGames = selectTailGames(res.json.games || [], state.last_url_seen || '');
+  if (!tailGames.length) {
+    // Update etag and exit
+    setMonthState(year, month, { etag: res.etag || state.etag || '', last_url_seen: state.last_url_seen || '' });
+    return { written: 0 };
+  }
+  var flat = flattenArchiveToRows(username, { games: tailGames }, year, month, res.etag || '', res.lastModified || '');
   writeHub(flat.hub);
   // Build and write the single wide AllFields row set from registry union
   var allRows = buildAllFieldsRows(flat, res.etag || '', res.lastModified || '', year, month);
@@ -243,6 +287,9 @@ function exportNewGames(username, year, month) {
   // Auto-append callback queue entries in E_Callback
   var urls = flat.hub.map(function(r){ return r[0]; }).filter(function(u){ return !!u; });
   enqueueCallbackUrls(urls, 'new');
+  // Update month state last_url_seen to last url written
+  var lastUrl = urls.length ? urls[urls.length-1] : (state.last_url_seen || '');
+  setMonthState(year, month, { etag: res.etag || state.etag || '', last_url_seen: lastUrl });
   return { written: flat.hub.length };
 }
 
@@ -284,7 +331,8 @@ function buildMetaRows(flat, etag, lastMod, year, month) {
       url: url,
       archive_year: String(year), archive_month: (month<10?'0':'')+String(month),
       archive_etag: etag, archive_last_modified: lastMod,
-      archive_sig: '', pgn_sig: '', schema_version: STATE.SCHEMA_VERSION, ingest_version: STATE.INGEST_VERSION,
+      archive_sig: simpleHash(String(year)+'/'+(month<10?'0':'')+String(month)+'|'+String(etag||'')+'|'+String(lastMod||'')),
+      pgn_sig: '', schema_version: STATE.SCHEMA_VERSION, ingest_version: STATE.INGEST_VERSION,
       last_ingested_at: Utilities.formatDate(new Date(), getDefaultTimezone(), 'yyyy-MM-dd HH:mm:ss'),
       last_rechecked_at: '',
       enrichment_status: 'queued', enrichment_targets: 'callback',
@@ -298,8 +346,10 @@ function buildMetaRows(flat, etag, lastMod, year, month) {
 }
 
 function writeMeta(rows) {
-  var ss = getSpokeSS('meta'); var sh = getOrCreateSheet(ss, SPOKES.meta.name, getMetaHeader());
-  if (rows && rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
+  if (!rows || !rows.length) return;
+  var ss = getSpokeSS('meta'); var header = getMetaHeader();
+  var sh = getOrCreateSheet(ss, SPOKES.meta.name, header);
+  upsertByUrl(sh, header, rows);
 }
 
 function enqueueForCallback(urls) {
@@ -388,7 +438,7 @@ function enqueueCallbackUrls(urls, reason) {
   var tz = getDefaultTimezone();
   var nowStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
   var rows = (urls||[]).map(function(u){ return [u, nowStr, '', reason||'']; });
-  if (rows.length) sheet.getRange(sheet.getLastRow()+1, 1, rows.length, 4).setValues(rows);
+  if (rows.length) upsertByUrl(sheet, ['url','queued_at','applied_at','reason'], rows);
 }
 
 function resolveMyColorFromCallback(pgnWhite, pgnBlack) {

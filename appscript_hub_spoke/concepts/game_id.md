@@ -2,6 +2,7 @@
 
 ### Sources (JSON/PGN first)
 - JSON `games[].url`: Canonical game URL (primary key). Example: `https://www.chess.com/game/live/124221014703`.
+- JSON `games[].uuid`: Game UUID (non-URL identifier).
 - PGN `Link`: Same as JSON URL.
 - Callback (optional) `game.id`: Numeric game identifier. Example: `143445742366`.
 - Callback (optional) `game.uuid`: Game UUID string (non-URL identifier).
@@ -34,7 +35,7 @@ Examples:
 ### Relationships and validation
 - Equality: JSON `games[].url` ≡ PGN `Link`.
 - Consistency check: the trailing numeric segment of the URL should match `game.id`.
-- `game.uuid` uniquely identifies the game in Callback systems but is not part of the public URL.
+- UUIDs: JSON `games[].uuid` and Callback `game.uuid` should match when both exist; neither appears in the public URL.
 
 ### Live vs Daily linkage
 - Live games correspond to the time classes Bullet, Blitz, Rapid.

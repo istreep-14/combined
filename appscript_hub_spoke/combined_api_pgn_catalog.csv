@@ -9,6 +9,7 @@ json_accuracies_black,json,games[].accuracies.black,number,analysis,Black accura
 json_final_fen,json,games[].fen,string,board,Final position FEN,string,same,
 json_time_class,json,games[].time_class,string,time,"Time class label","e.g. blitz",lowercase,normalize_lowercase
 json_rules,json,games[].rules,string,variant,Variant/rules,"e.g. chess960",lowercase,normalize_lowercase
+json_game_uuid,json,games[].uuid,string,identity,Game UUID,uuid,uuid,
 json_white_rating,json,games[].white.rating,number,ratings,White post-game rating,number,same,
 json_white_result,json,games[].white.result,string,result,White result code,string,string,map_result_to_outcome
 json_white_id,json,games[].white.@id,string,identity,White profile URL,url,url,

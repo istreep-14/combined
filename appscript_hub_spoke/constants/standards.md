@@ -13,3 +13,36 @@
   - End reason uses loser-side code (draw: draw-family code). Bughouse partner-loss semantics apply.
 - Sheets/materialization:
   - Ledger/Core are append-only and formula-free; batch writes only.
+  - Keep state like cursors, ETags, LAST_RATING_FMT_<FORMAT>, SCHEMA_VERSION.
+
+### Additional standards
+- Naming and prefixes
+  - `my_/opp_` for perspective-only fields; `white_/black_` mirror raw source.
+  - Suffixes: `_epoch` (seconds), `_local` (project TZ), `_url`, `_code`, `_id`, `_uuid`.
+  - Arrays are CSV strings without spaces; units documented in field name/notes.
+- Types and nulls
+  - Use empty string for unknowns in Sheets; avoid 0/"null" as placeholders.
+  - Epoch/IDs as integers; times/deltas as decimals; booleans true/false.
+- Time and timezone
+  - Single project timezone for all `*_local`; store raw epoch too when possible.
+  - Callback timing in deciseconds; normalize to seconds at ingest.
+- Identity and keys
+  - Primary key is `url`; secondary `{mode,id}` when needed; `uuid` optional.
+  - Perspective resolution: USERNAME → PGN → JSON → Callback.
+- Format and rules
+  - FORMAT mapping is immutable and versioned (see `constants/formats.csv`).
+  - `live_vs_daily` is the single flag; do not duplicate (`is_correspondence`).
+- Results policy
+  - `end_reason` uses loser-side token; PGN `Termination` is display text.
+  - Bughouse partner-loss rule applies; never infer partner-loss from a win.
+- Time control
+  - Parse base/inc from JSON/PGN; Callback confirms units only.
+  - 40-move heuristic documented under concepts; analysis-only, not ledger.
+- Moves
+  - Per-move time = prev_remaining − curr_remaining + increment_seconds, clamped ≥ 0.
+  - Prefer PGN `[%clk]` for timestamps; Callback optional enrichment.
+- Network/runtime
+  - ETag/Last-Modified fetches; backoff/retry policy; rate-limit caps; logging.
+- QA checks
+  - Winner agreement across JSON/PGN/Callback; Live/Daily consistency (URL vs control vs signals).
+  - UUID agreement when present; unit normalization checks on timing.

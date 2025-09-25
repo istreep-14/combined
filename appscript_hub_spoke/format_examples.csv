@@ -1,0 +1,11 @@
+example_id,description,input_fields,input_values,expected_fields,expected_values
+fmt1,"rules=chess, time_class=blitz","json_rules,json_time_class","chess,blitz","desired_format","blitz"
+fmt2,"rules=chess960, time_class=bullet","json_rules,json_time_class","chess960,bullet","desired_format","live960"
+fmt3,"rules=chess960, time_class=daily","json_rules,json_time_class","chess960,daily","desired_format","daily960"
+fmt4,"rules=crazyhouse (any time_class)","json_rules,json_time_class","crazyhouse,blitz","desired_format","crazyhouse"
+id1,"USERNAME matches PGN White","USERNAME,pgn_white,pgn_black","ians141,ians141,badjaeaux8","desired_my_color","white"
+id2,"USERNAME matches PGN Black","USERNAME,pgn_white,pgn_black","ians141,badjaeaux8,ians141","desired_my_color","black"
+delta1,"last-based delta simple","desired_format,stored_last,my_end","blitz,1840,1844","desired_my_pregame_last|desired_my_delta_last","1840|4"
+delta2,"opp derived from my delta","opp_end,my_delta_last","1839,4","desired_opp_pregame_last|desired_opp_delta_last","1835|-4"
+cb1,"callback overrides non-zero","my_delta_last,my_delta_cb","4,5","desired_my_delta","5"
+cb2,"callback zero keeps last","my_delta_last,my_delta_cb","-3,0","desired_my_delta","-3"

@@ -1,0 +1,23 @@
+json_path,type,description
+games[],array,List of game objects for the archive month
+games[].url,string,URL of this game
+games[].pgn,string,Final PGN text
+games[].time_control,string,PGN-compliant time control (e.g. "60" "300+2" "1/86400")
+games[].end_time,number,Unix epoch seconds when the game ended
+games[].rated,boolean,Whether the game is rated
+games[].accuracies.white,number,White accuracy percentage if computed
+games[].accuracies.black,number,Black accuracy percentage if computed
+games[].fen,string,Ending FEN
+games[].time_class,string,Normalized time class (bullet|blitz|rapid|daily)
+games[].rules,string,Game rules/variant (e.g. chess|chess960|bughouse|crazyhouse|kingofthehill|threecheck)
+games[].white.rating,number,White player's post-game rating
+games[].white.result,string,White player's result code (e.g. win|checkmated|timeout|resigned|agreed|repetition|stalemate|insufficient|50move|timevsinsufficient)
+games[].white.@id,string,White player's profile URL
+games[].white.username,string,White player's username
+games[].white.uuid,string,White player's member UUID
+games[].black.rating,number,Black player's post-game rating
+games[].black.result,string,Black player's result code (see above)
+games[].black.@id,string,Black player's profile URL
+games[].black.username,string,Black player's username
+games[].black.uuid,string,Black player's member UUID
+games[].eco,string,URL pointing to ECO opening (if available)

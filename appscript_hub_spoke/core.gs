@@ -342,7 +342,7 @@ function processCallbackBatch(maxN) {
   for (var r=0; r<vals.length && picked.length<limit; r++) { if (!vals[r][iA]) picked.push({ row: 2+r, url: vals[r][iUrl] }); }
   if (!picked.length) return { applied: 0 };
   var out = []; var tz = getDefaultTimezone();
-  for (var i=0;i<urls.length;i++) {
+  for (var i=0;i<picked.length;i++) {
     var url = picked[i].url; var id = url.split('/').pop(); var type = (url.indexOf('/game/daily/')>=0)?'daily':'live';
     var endpoint = type==='daily' ? ('https://www.chess.com/callback/daily/game/'+id) : ('https://www.chess.com/callback/live/game/'+id);
     try {

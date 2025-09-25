@@ -27,6 +27,10 @@ Examples:
 - isLiveGame=true, id=124221014703 → `https://www.chess.com/game/live/124221014703`
 - isLiveGame=false, id=9876543210 → `https://www.chess.com/game/daily/9876543210`
 
+### URL path cues
+- The canonical URL itself encodes the mode: it contains either `.../game/live/...` or `.../game/daily/...`.
+- When the URL is present (JSON or PGN `Link`), you can parse the path segment to determine live vs daily without additional metadata.
+
 ### Relationships and validation
 - Equality: JSON `games[].url` ≡ PGN `Link`.
 - Consistency check: the trailing numeric segment of the URL should match `game.id`.
@@ -37,6 +41,10 @@ Examples:
 - Daily corresponds to correspondence chess (per-move allotment like `1/86400`).
 - See `concepts/time_control.md` for thresholds and parsing. In Callback, `isLiveGame` links directly to live vs daily.
 
+PGN header cues:
+- `[Event "Live Chess"]` indicates live play (Bullet/Blitz/Rapid).
+- `[Event "Let's Play!"]` indicates daily (correspondence) play.
+
 ### Other identifiers
 - Player identifiers in JSON/Callback (`games[].white.uuid`, `games[].black.uuid`, `players.{side}.uuid`) refer to members, not games.
 - Profile URLs (`games[].white.@id`, `games[].black.@id`) identify users, not games.
@@ -44,3 +52,8 @@ Examples:
 ### Edge considerations
 - Aborted/unrated games still have IDs and URLs; rating-affecting flags do not change URL construction.
 - For idempotency, always key by URL; use `game.id`/`game.uuid` as auxiliary keys for joins and validation.
+
+### ID sequencing and scope
+- Callback `game.id` values are maintained per mode: live IDs and daily IDs progress within their own sequences.
+- Within each mode, IDs generally increase over time; the next integer often corresponds to the next game recorded globally for that mode.
+- Do not compare magnitude across modes (a larger daily ID does not imply a newer game than a smaller live ID).

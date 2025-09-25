@@ -6,7 +6,8 @@ var HUB = { name: 'Games' };
 var SPOKES = {
   analysis: { name: 'AnalysisStaging' },
   callback: { name: 'CallbackRaw' },
-  all:      { name: 'AllFields' }
+  all:      { name: 'AllFields' },
+  meta:     { name: 'Meta' }
 };
 
 var STATE = {
@@ -19,22 +20,25 @@ function setupProject() {
   var analysisSS = SpreadsheetApp.create('Spoke - Analysis');
   var callbackSS = SpreadsheetApp.create('Spoke - Callback');
   var allSS = SpreadsheetApp.create('Spoke - AllFields');
+  var metaSS = allSS; // Meta lives in the same AllFields spreadsheet
 
   var hubSheet = getOrCreateSheet(hubSS, HUB.name, getHeaderFor('hub'));
   var analysisSheet = getOrCreateSheet(analysisSS, SPOKES.analysis.name, getHeaderFor('spoke:analysis'));
   var callbackSheet = getOrCreateSheet(callbackSS, SPOKES.callback.name, getHeaderFor('spoke:callback'));
   var allSheet = getOrCreateSheet(allSS, SPOKES.all.name, getHeaderFor('all'));
+  var metaSheet = getOrCreateSheet(metaSS, SPOKES.meta.name, getMetaHeader());
 
   PropertiesService.getScriptProperties().setProperty('HUB_ID', hubSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_ANALYSIS_ID', analysisSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_CALLBACK_ID', callbackSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_ALL_ID', allSS.getId());
+  PropertiesService.getScriptProperties().setProperty('SPOKE_META_ID', metaSS.getId());
 
   // Create Hub ExportQueue
   getOrCreateSheet(hubSS, 'ExportQueue', ['url','target','reason','queued_at']);
 
   return {
-    hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: callbackSS.getUrl(), allUrl: allSS.getUrl()
+    hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: callbackSS.getUrl(), allUrl: allSS.getUrl(), metaUrl: metaSS.getUrl()
   };
 }
 
@@ -45,6 +49,7 @@ function getHubSS() {
 
 function getSpokeSS(kind) {
   var key = (kind === 'analysis') ? 'SPOKE_ANALYSIS_ID' : (kind === 'all' ? 'SPOKE_ALL_ID' : 'SPOKE_CALLBACK_ID');
+  if (kind === 'meta') key = 'SPOKE_META_ID';
   var id = PropertiesService.getScriptProperties().getProperty(key);
   return SpreadsheetApp.openById(id);
 }
@@ -233,6 +238,9 @@ function exportNewGames(username, year, month) {
   // Build and write the single wide AllFields row set from registry union
   var allRows = buildAllFieldsRows(flat, res.etag || '', res.lastModified || '', year, month);
   writeSpoke('all', allRows);
+  // Write Meta rows (one per url)
+  var metaRows = buildMetaRows(flat, res.etag || '', res.lastModified || '', year, month);
+  writeMeta(metaRows);
   // Queue exports for analysis and callback
   var urls = flat.hub.map(function(r){ return r[0]; });
   queueExports(urls, ['analysis','callback'], 'new');
@@ -240,7 +248,7 @@ function exportNewGames(username, year, month) {
 }
 
 function buildAllFieldsRows(flat, etag, lastMod, year, month) {
-  var header = getHeaderFor('all');
+  var header = getHeaderFor('all_no_callback');
   var mapHub = {}; // url -> hub row values by name
   var mapAnalysis = {};
   var idx = {};
@@ -266,6 +274,33 @@ function buildAllFieldsRows(flat, etag, lastMod, year, month) {
     out.push(row);
   });
   return out;
+}
+
+function buildMetaRows(flat, etag, lastMod, year, month) {
+  var header = getMetaHeader();
+  var out = [];
+  for (var i=0;i<flat.hub.length;i++) {
+    var row = flat.hub[i]; var url = row[0];
+    var meta = {
+      url: url,
+      archive_year: String(year), archive_month: (month<10?'0':'')+String(month),
+      archive_etag: etag, archive_last_modified: lastMod,
+      archive_sig: '', pgn_sig: '', schema_version: STATE.SCHEMA_VERSION, ingest_version: STATE.INGEST_VERSION,
+      last_ingested_at: Utilities.formatDate(new Date(), getDefaultTimezone(), 'yyyy-MM-dd HH:mm:ss'),
+      last_rechecked_at: '',
+      enrichment_status: 'queued', enrichment_targets: 'callback',
+      last_enrichment_applied_at: '', last_enrichment_reason: '', notes: '',
+      callback_status: 'queued', callback_queued_at: Utilities.formatDate(new Date(), getDefaultTimezone(), 'yyyy-MM-dd HH:mm:ss'), callback_applied_at: '', callback_reason: ''
+    };
+    var arr = header.map(function(k){ return meta[k]!==undefined ? meta[k] : ''; });
+    out.push(arr);
+  }
+  return out;
+}
+
+function writeMeta(rows) {
+  var ss = getSpokeSS('meta'); var sh = getOrCreateSheet(ss, SPOKES.meta.name, getMetaHeader());
+  if (rows && rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
 }
 
 function enqueueForCallback(urls) {

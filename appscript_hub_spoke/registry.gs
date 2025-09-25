@@ -110,6 +110,19 @@ function getHeaderFor(target) {
     out = out.filter(function(n){ return n!=='url'; });
     out.unshift('url');
     return out;
+  } else if (target === 'all_no_callback') {
+    var names2 = {};
+    var out2 = [];
+    ['hub','spoke:analysis'].forEach(function(t){
+      FIELD_REGISTRY.forEach(function(f){
+        if ((t==='hub' && f.write_to==='hub') || (t!=='hub' && f.write_to===t)) {
+          if (!names2[f.name]) { names2[f.name]=true; out2.push(f.name); }
+        }
+      });
+    });
+    out2 = out2.filter(function(n){ return n!=='url'; });
+    out2.unshift('url');
+    return out2;
   } else {
     arr = [];
   }

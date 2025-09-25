@@ -13,7 +13,12 @@ var STATE = {
   SCHEMA_VERSION: 'v1.0',
   INGEST_VERSION: 'v1.0'
 };
-var CALLBACK_PINNED_FIELDS = ['result_message','ply_count'];
+var CALLBACK_PINNED_FIELDS = [
+  'my_rating_change','opp_rating_change','my_pregame_rating','opp_pregame_rating',
+  'result_message','ply_count','base_time1','time_increment1','move_timestamps_ds',
+  'my_country','my_membership','my_default_tab','my_post_move_action',
+  'opp_country','opp_membership','opp_default_tab','opp_post_move_action'
+];
 
 function setupProject() {
   var hubSS = SpreadsheetApp.create('Hub - Games');

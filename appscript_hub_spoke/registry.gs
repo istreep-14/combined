@@ -121,7 +121,12 @@ function getHeaderFor(target) {
       });
     });
     // Include pinned callback fields in AllFields
-    var pinned = ['result_message','ply_count'];
+    var pinned = [
+      'my_rating_change','opp_rating_change','my_pregame_rating','opp_pregame_rating',
+      'result_message','ply_count','base_time1','time_increment1','move_timestamps_ds',
+      'my_country','my_membership','my_default_tab','my_post_move_action',
+      'opp_country','opp_membership','opp_default_tab','opp_post_move_action'
+    ];
     for (var i=0;i<pinned.length;i++) if (!names2[pinned[i]]) { names2[pinned[i]]=true; out2.push(pinned[i]); }
     out2 = out2.filter(function(n){ return n!=='url'; });
     out2.unshift('url');

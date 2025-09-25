@@ -7,6 +7,10 @@ JSON/PGN-first, with callback as optional enrichment. This document groups move 
 - PGN header/body: Same as above (PGN string).
 - Callback (optional): `game.moveList` (encoded), `game.moveTimestamps` (deciseconds), and sometimes `plyCount`.
 
+Accuracy and performance (JSON analysis):
+- `games[].accuracies.white`, `games[].accuracies.black` — engine-derived accuracy percentages when available.
+- These can enrich performance analyses alongside per-move time data (e.g., accuracy vs time spent, accuracy vs opening families).
+
 ### Per-move time from PGN clock annotations
 - PGN annotations `[%clk HH:MM:SS(.t)]` show the mover’s remaining clock after that move.
 - For a given side, time spent on a move ≈ previous remaining − current remaining + increment.
@@ -19,6 +23,11 @@ JSON/PGN-first, with callback as optional enrichment. This document groups move 
 - `game.moveTimestamps` are deciseconds (×10). Divide by 10 to get seconds.
 - These represent remaining time snapshots after moves (analogous to PGN `[%clk]`). Apply the same per-move time formula per side: prev − curr + inc.
 - `baseTime1` and `timeIncrement1` are also in deciseconds; divide by 10 for seconds.
+
+Callback move encodings:
+- `game.moveList` is an internal encoded representation; not required if you keep PGN movetext. You can ignore it unless you need lower-level event reconstruction.
+- `game.lastMove` is a short marker string for UI/debug; treat as informational.
+- `game.turnColor` indicates whose turn it was at the capture/end. If a side was checkmated, `turnColor` may reflect the side that would have moved next absent checkmate (i.e., the mated side just moved and got mated by opponent, resulting in no further turn).
 
 ### Ply count and move indexing
 - Ply count (half-moves) can be derived from PGN movetext or taken from callback `plyCount` when present.

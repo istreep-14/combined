@@ -16,6 +16,11 @@ This document outlines how to get game start/end times, how to localize and form
   - `date` (from end): `yyyy-MM-dd`
   - `end_time` (time-of-day from end): `HH:mm:ss`
 
+Timezone nuances:
+- PGN `Timezone` header may specify the context for `StartTime`/`EndTime`; when present and not `UTC`, treat `UTCDate`/`UTCTime` as authoritative for start and use `Timezone` for local strings.
+- Always store/compute with epoch seconds internally, and localize only at materialization time.
+- Be explicit about the project timezone (e.g., set once in configuration) to ensure consistent `*_local` fields across sessions.
+
 Notes:
 - Prefer JSON `end_time` for end-of-game time; fall back to callback `endTime` if JSON not available.
 - For start time on live games, prefer PGN `UTCDate` + `UTCTime` parsed as UTC, then localized.

@@ -54,6 +54,8 @@ This concept consolidates non-outcome data about each player (both sides) across
   - `player_avatar_url_{side}` (url, callback when present)
   - `player_is_online_{side}` (boolean, callback when present)
   - `player_last_login_epoch_{side}` (number, callback when present)
+  - `player_membership_level_{side}` (number, callback when present)
+  - `player_country_id_{side}` (number, callback when present)
 
 - Perspective (optional):
   - `my_username`, `opp_username`, `my_color`
@@ -62,6 +64,8 @@ This concept consolidates non-outcome data about each player (both sides) across
 - Ratings referenced here are post-game; there is no guaranteed "pregame" rating field across sources.
 - Callback fields reflect a snapshot at capture time and may include additional UI/experience fields not present in JSON/PGN.
 - Some callback fields can be missing or hidden (`isContentHidden`).
+- Social/context fields (callback): keep for analysis — `friendRequestSent`, `friendRequestReceived`, `isFriend`, `isBlocked`, `defaultTab`, `postMoveAction`, `gamesInProgress`, `vacationRemaining`.
+- Membership and social signals can help flag suspicious behavior in downstream analyses.
 
 ### Mapping cues for white/black on callback
 - Use `players.{side}.color` to identify which side is white/black. Do not assume `top` is always black or white.

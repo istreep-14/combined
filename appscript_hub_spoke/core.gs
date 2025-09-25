@@ -30,6 +30,9 @@ function setupProject() {
   var allSheet = getOrCreateSheet(allSS, SPOKES.all.name, getHeaderFor('all'));
   var metaSheet = getOrCreateSheet(metaSS, SPOKES.meta.name, getMetaHeader());
 
+  // Core sheet lives alongside AllFields; small, upsert-by-url, computed deltas
+  getOrCreateSheet(allSS, 'Core', getCoreHeader());
+
   PropertiesService.getScriptProperties().setProperty('HUB_ID', hubSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_ALL_ID', allSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_META_ID', metaSS.getId());
@@ -105,7 +108,7 @@ function flattenArchiveToRows(username, archiveJson, yearOpt, monthOpt, etagOpt,
     // Core fields (simplified for starter)
     var timeClass = String(g.time_class || '').toLowerCase();
     var rules = String(g.rules || '').toLowerCase();
-    var format = (rules === 'chess' || !rules) ? timeClass : (rules + '-' + timeClass);
+    var format = deriveFormatSpec(rules, timeClass);
     var endEpoch = g.end_time || null;
     var startLocal = ''; var endLocal = '';
     var dateOnly = '';
@@ -215,6 +218,27 @@ function deriveEndReason(g) {
   var w = (g.white && g.white.result) || ''; var b = (g.black && g.black.result) || '';
   if (w === 'win') return b || 'win'; if (b === 'win') return w || 'win';
   return w || b || '';
+}
+
+// Derive format per user's spec:
+// - rules=chess => format = time_class
+// - rules=chess960 => bullet/blitz/rapid grouped to live960; daily -> daily960
+// - rules in {bughouse,crazyhouse,kingofthehill,threecheck} => format = rules (time_class collapsed)
+// - otherwise fallback to rules if present, else time_class
+function deriveFormatSpec(rules, timeClass) {
+  var r = String(rules||'').toLowerCase();
+  var t = String(timeClass||'').toLowerCase();
+  if (!r || r === 'chess') return t; // bullet|blitz|rapid|daily
+  if (r === 'chess960') {
+    if (t === 'daily') return 'daily960';
+    // treat bullet/blitz/rapid all as live960
+    if (t === 'bullet' || t === 'blitz' || t === 'rapid') return 'live960';
+    return 'live960';
+  }
+  var collapsed = { bughouse:true, crazyhouse:true, kingofthehill:true, threecheck:true };
+  if (collapsed[r]) return r;
+  // default fallback: prefer rules, else time_class
+  return r || t;
 }
 
 function writeHub(rows) {
@@ -497,3 +521,219 @@ function simpleHash(str) {
   try { var s = String(str||''); var h = 0; for (var i=0;i<s.length;i++) { h = ((h<<5)-h) + s.charCodeAt(i); h |= 0; } return String(h>>>0); } catch(e){ return ''; }
 }
 
+
+// -------------------- Core materializer and callback overlay --------------------
+
+function getCoreHeader() {
+  return [
+    'url',
+    'date',
+    'format',
+    'my_rating_end',
+    'opp_rating_end',
+    'my_pregame_last',
+    'my_delta_last',
+    'opp_pregame_last',
+    'opp_delta_last',
+    'my_pregame_cb',
+    'my_delta_cb',
+    'opp_pregame_cb',
+    'opp_delta_cb',
+    'my_delta',
+    'opp_delta'
+  ];
+}
+
+function getProps() { return PropertiesService.getScriptProperties(); }
+
+function coreCursorGet() {
+  var v = getProps().getProperty('CORE_CURSOR_LAST_ROW');
+  return v ? Number(v) : 1; // header row index
+}
+
+function coreCursorSet(rowIndex) {
+  if (rowIndex && rowIndex > 1) getProps().setProperty('CORE_CURSOR_LAST_ROW', String(rowIndex));
+}
+
+function fmtKey(format) { return 'LAST_RATING_FMT_' + String(format || '').toUpperCase(); }
+
+function getLastRatingForFormat(format) {
+  var raw = getProps().getProperty(fmtKey(format));
+  return (raw === undefined || raw === null || raw === '') ? '' : Number(raw);
+}
+
+function setLastRatingForFormat(format, ratingEnd) {
+  if (ratingEnd === '' || ratingEnd === null || ratingEnd === undefined) return;
+  getProps().setProperty(fmtKey(format), String(Number(ratingEnd)));
+}
+
+function getHeaderIndex(sheet) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return {};
+  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0] || [];
+  var idx = {}; for (var i = 0; i < header.length; i++) idx[String(header[i])] = i;
+  return idx;
+}
+
+function getUrlToRowIndexMap(sheet) {
+  var map = {};
+  var last = sheet.getLastRow();
+  if (last < 2) return map;
+  var urls = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < urls.length; i++) { var u = urls[i][0]; if (u) map[String(u)] = 2 + i; }
+  return map;
+}
+
+function upsertCoreRows(coreSheet, rows) {
+  if (!rows || !rows.length) return 0;
+  var headerLen = coreSheet.getLastColumn() || rows[0].length;
+  var urlToRow = getUrlToRowIndexMap(coreSheet);
+  var toAppend = [];
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r]; var url = row[0]; if (!url) continue;
+    var at = urlToRow[url];
+    if (at) {
+      coreSheet.getRange(at, 1, 1, headerLen).setValues([row.slice(0, headerLen)]);
+    } else {
+      toAppend.push(row);
+    }
+  }
+  if (toAppend.length) {
+    coreSheet.getRange(coreSheet.getLastRow() + 1, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
+  }
+  return rows.length;
+}
+
+// Materialize new AllFields rows into Core with simple last-based deltas per full format
+function materializeCoreFromAllFields(maxRows) {
+  var allSS = getSpokeSS('all');
+  var allSheet = getOrCreateSheet(allSS, SPOKES.all.name, getHeaderFor('all'));
+  var last = allSheet.getLastRow(); if (last < 2) return 0;
+  var startAt = Math.max(2, coreCursorGet() + 1);
+  if (startAt > last) return 0;
+  var headerIdx = getHeaderIndex(allSheet);
+  var iUrl = headerIdx['url'];
+  var iDate = headerIdx['date'];
+  var iFmt = headerIdx['format'];
+  var iMyEnd = headerIdx['my_rating_end'];
+  var iOppEnd = headerIdx['opp_rating_end'];
+  var totalRows = last - startAt + 1;
+  var limit = maxRows ? Math.min(totalRows, Math.max(1, Number(maxRows))) : totalRows;
+  var values = allSheet.getRange(startAt, 1, limit, allSheet.getLastColumn()).getValues();
+
+  var coreSS = allSS; // keep Core in the same spreadsheet as AllFields
+  var coreSheet = getOrCreateSheet(coreSS, 'Core', getCoreHeader());
+
+  var out = [];
+  for (var r = 0; r < values.length; r++) {
+    var row = values[r];
+    var url = row[iUrl]; if (!url) continue;
+    var date = row[iDate] || '';
+    var fmt = row[iFmt] || '';
+    var myEnd = row[iMyEnd]; var oppEnd = row[iOppEnd];
+    var lastMy = getLastRatingForFormat(fmt);
+    var preLast = (lastMy === '' || lastMy === null || lastMy === undefined) ? '' : Number(lastMy);
+    var myPost = (myEnd === '' || myEnd === null || myEnd === undefined) ? '' : Number(myEnd);
+    var deltaLast = (preLast === '' || myPost === '' ? '' : (myPost - preLast));
+    // update state if we have a current rating
+    if (myPost !== '' && !isNaN(myPost)) setLastRatingForFormat(fmt, myPost);
+    var oppPost = (oppEnd === '' || oppEnd === null || oppEnd === undefined) ? '' : Number(oppEnd);
+    var oppDeltaLast = (deltaLast === '' ? '' : -Number(deltaLast));
+    var oppPreLast = (oppPost === '' || oppDeltaLast === '' ? '' : (Number(oppPost) - Number(oppDeltaLast)));
+
+    var coreRow = [
+      url,
+      date,
+      fmt,
+      myEnd,
+      oppEnd,
+      preLast,
+      deltaLast,
+      oppPreLast,
+      oppDeltaLast,
+      '', // my_pregame_cb
+      '', // my_delta_cb
+      '', // opp_pregame_cb
+      '', // opp_delta_cb
+      (deltaLast === '' ? '' : Number(deltaLast)), // my_delta (final, may be overridden later)
+      (oppDeltaLast === '' ? '' : Number(oppDeltaLast)) // opp_delta (final)
+    ];
+    out.push(coreRow);
+  }
+
+  if (out.length) upsertCoreRows(coreSheet, out);
+  // advance cursor
+  coreCursorSet(startAt + values.length - 1);
+  return out.length;
+}
+
+// Overlay callback deltas (when non-zero) into Core and set final display deltas
+function applyCallbacksToCore() {
+  var cbSS = getSpokeSS('callback');
+  var sheet = getOrCreateSheet(cbSS, SPOKES.callback.name, ['url','queued_at','applied_at','reason'].concat(getHeaderFor('spoke:callback')));
+  var last = sheet.getLastRow(); if (last < 2) return 0;
+  var header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  function idx(name) { for (var i = 0; i < header.length; i++) if (String(header[i]) === name) return i; return -1; }
+  var iUrl = idx('url'); var iApplied = idx('applied_at');
+  // callback data columns begin after the first 4 columns
+  var cbHeader = getHeaderFor('spoke:callback');
+  var baseCol = 5; // 1-based position where cb fields start in E_Callback
+  function cbIdx(fieldName) { var p = cbHeader.indexOf(fieldName); return p < 0 ? -1 : (baseCol - 1 + 1 + p) - 1; }
+  // Above returns a zero-based index relative to header array
+  var iMyDeltaCb = cbIdx('my_rating_change');
+  var iOppDeltaCb = cbIdx('opp_rating_change');
+  var iMyPreCb = cbIdx('my_pregame_rating');
+  var iOppPreCb = cbIdx('opp_pregame_rating');
+
+  var vals = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+  var cbMap = {};
+  for (var r = 0; r < vals.length; r++) {
+    var v = vals[r];
+    var applied = v[iApplied - 1 + 1 - 1 + 1]; // keep as truthy check via header match
+    // Simpler: rely on position
+    applied = v[2];
+    var url = v[iUrl];
+    if (!url || !applied) continue;
+    var dMy = (iMyDeltaCb >= 0 ? v[iMyDeltaCb] : '');
+    var dOpp = (iOppDeltaCb >= 0 ? v[iOppDeltaCb] : '');
+    var preMy = (iMyPreCb >= 0 ? v[iMyPreCb] : '');
+    var preOpp = (iOppPreCb >= 0 ? v[iOppPreCb] : '');
+    cbMap[String(url)] = {
+      myDelta: (dMy === '' || dMy === null || dMy === undefined ? '' : Number(dMy)),
+      oppDelta: (dOpp === '' || dOpp === null || dOpp === undefined ? '' : Number(dOpp)),
+      myPre: (preMy === '' || preMy === null || preMy === undefined ? '' : Number(preMy)),
+      oppPre: (preOpp === '' || preOpp === null || preOpp === undefined ? '' : Number(preOpp))
+    };
+  }
+  var allSS = getSpokeSS('all');
+  var core = getOrCreateSheet(allSS, 'Core', getCoreHeader());
+  var ch = core.getRange(1, 1, 1, core.getLastColumn()).getValues()[0];
+  function cidx(n) { for (var i = 0; i < ch.length; i++) if (String(ch[i]) === n) return i; return -1; }
+  var icUrl = cidx('url');
+  var icMyPreLast = cidx('my_pregame_last'); var icMyDeltaLast = cidx('my_delta_last');
+  var icOppPreLast = cidx('opp_pregame_last'); var icOppDeltaLast = cidx('opp_delta_last');
+  var icMyPreCb = cidx('my_pregame_cb'); var icMyDeltaCb = cidx('my_delta_cb');
+  var icOppPreCb = cidx('opp_pregame_cb'); var icOppDeltaCb = cidx('opp_delta_cb');
+  var icMyDelta = cidx('my_delta'); var icOppDelta = cidx('opp_delta');
+  var coreLast = core.getLastRow(); if (coreLast < 2) return 0;
+  var rows = core.getRange(2, 1, coreLast - 1, core.getLastColumn()).getValues();
+  var updated = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var urlKey = rows[i][icUrl]; if (!urlKey) continue;
+    var cb = cbMap[String(urlKey)]; if (!cb) continue;
+    // write cb columns
+    if (icMyPreCb >= 0) rows[i][icMyPreCb] = cb.myPre;
+    if (icMyDeltaCb >= 0) rows[i][icMyDeltaCb] = cb.myDelta;
+    if (icOppPreCb >= 0) rows[i][icOppPreCb] = cb.oppPre;
+    if (icOppDeltaCb >= 0) rows[i][icOppDeltaCb] = cb.oppDelta;
+    // final display deltas: override when callback delta is non-zero
+    var lastMy = rows[i][icMyDeltaLast]; var lastOpp = rows[i][icOppDeltaLast];
+    var finalMy = (cb.myDelta !== '' && cb.myDelta !== 0) ? cb.myDelta : lastMy;
+    var finalOpp = (cb.oppDelta !== '' && cb.oppDelta !== 0) ? cb.oppDelta : lastOpp;
+    if (icMyDelta >= 0) rows[i][icMyDelta] = finalMy;
+    if (icOppDelta >= 0) rows[i][icOppDelta] = finalOpp;
+    updated++;
+  }
+  if (updated) core.getRange(2, 1, rows.length, core.getLastColumn()).setValues(rows);
+  return updated;
+}

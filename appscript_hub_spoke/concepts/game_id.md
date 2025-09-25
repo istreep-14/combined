@@ -1,11 +1,11 @@
 ## Game ID and canonical URL
 
-### Sources
+### Sources (JSON/PGN first)
 - JSON `games[].url`: Canonical game URL (primary key). Example: `https://www.chess.com/game/live/124221014703`.
 - PGN `Link`: Same as JSON URL.
-- Callback `game.id`: Numeric game identifier. Example: `143445742366`.
-- Callback `game.uuid`: Game UUID string (non-URL identifier).
-- Callback `game.isLiveGame`: Boolean indicating live (true) vs correspondence/daily (false).
+- Callback (optional) `game.id`: Numeric game identifier. Example: `143445742366`.
+- Callback (optional) `game.uuid`: Game UUID string (non-URL identifier).
+- Callback (optional) `game.isLiveGame`: Boolean indicating live (true) vs correspondence/daily (false).
 
 ### URL patterns (constructed from callback ID)
 - Live: `https://www.chess.com/game/live/{id}`
@@ -13,8 +13,7 @@
 
 Construction rule:
 1) Prefer the URL from JSON/PGN when present (authoritative and stable).
-2) If Callback is present, use `isLiveGame` to choose the path, then append `game.id`.
-3) If Callback is not present, infer the path from source time metadata:
+2) Without callback, infer the path from source time metadata:
    - If JSON `time_class` ∈ {bullet, blitz, rapid} → live path
    - If JSON `time_class` = daily → daily path
    - If JSON `time_class` missing, parse PGN `TimeControl`:
@@ -22,6 +21,7 @@ Construction rule:
      - Contains `/` (correspondence seconds per move) → daily path
      - Bare seconds: compute EstimatedMinutes = base_seconds ÷ 60; if ≥ 10 → Rapid (live), else live; daily only when `/` is present
    - For variants: `chess960` follows same live/daily rule; other variants (bughouse, crazyhouse, kingofthehill, threecheck) are always live
+3) If callback is present, use `isLiveGame` to choose the path, then append `game.id`.
 
 Examples:
 - isLiveGame=true, id=124221014703 → `https://www.chess.com/game/live/124221014703`

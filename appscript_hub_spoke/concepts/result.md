@@ -2,13 +2,13 @@
 
 This concept aligns result-related fields across sources (JSON, PGN, Callback), defines clear variable names, and shows how to compute perspective-aware outcomes and an authoritative end reason.
 
-### Source fields
+### Source fields (JSON/PGN first)
 - JSON archive
   - `games[].white.result`, `games[].black.result` → engine-style tokens: `win`, `checkmated`, `timeout`, `resigned`, `abandoned`, `agreed`, `repetition`, `stalemate`, `insufficient`, `50move`, `timevsinsufficient`, plus variant codes.
 - PGN
   - `Result` → `1-0`, `0-1`, `1/2-1/2`.
   - `Termination` (optional) → human text, e.g., `Sarabi07 won on time`.
-- Callback
+- Callback (optional enhancement)
   - `game.colorOfWinner` → `white` | `black`.
   - `game.gameEndReason` → token (same family as JSON result codes; see constants/result_codes.csv).
   - `game.resultMessage` → human text, e.g., `X won on time`.
@@ -30,9 +30,9 @@ Note: `end_reason_code` is not per-player; it describes the cause of the game en
 
 ### Derivations and precedence
 Preferred precedence when multiple sources are available:
-1) Outcome (who won): Callback `colorOfWinner` → else JSON white/black result → else PGN `Result`.
-2) End reason: Callback `gameEndReason` (authoritative) → else JSON loser-side code (or draw code) → else infer from PGN `Termination` text when parsable.
-3) Termination text: Callback `resultMessage` → else PGN `Termination` → else synthesize from winner+reason when needed.
+1) Outcome (who won): JSON white/black result → else PGN `Result` → else Callback `colorOfWinner` (when available).
+2) End reason: JSON loser-side code (or draw code) → else infer from PGN `Termination` text → else Callback `gameEndReason` (when available) for refinement.
+3) Termination text: PGN `Termination` → else synthesize from winner+reason → else Callback `resultMessage` (when available).
 
 ### Mappings and formulas
 - `standard_result_string` from winner/draw:

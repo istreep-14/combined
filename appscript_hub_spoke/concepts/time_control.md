@@ -1,9 +1,9 @@
 ## Time control, time class, and clock mechanics
 
-### Sources and shapes
+### Sources and shapes (JSON/PGN first)
 - JSON `games[].time_control`: PGN-style string, examples: `60`, `300+2`, `1/86400`.
 - PGN `TimeControl`: same as JSON (string).
-- Callback `game.baseTime1`, `game.timeIncrement1`: base and increment reported in deciseconds (×10). Divide by 10 to get seconds.
+- Callback (optional enhancement) `game.baseTime1`, `game.timeIncrement1`: base and increment in deciseconds (×10). Divide by 10 for seconds when available.
 
 ### Parsing to base and increment
 - Base time (seconds): parse integer before `+` or `/` when present; if bare number, it is the base seconds.
@@ -17,7 +17,7 @@ Callback example:
 - `game.baseTime1=1800`, `game.timeIncrement1=0` → base = 180.0s, inc = 0.0s (deciseconds → seconds)
 
 ### Estimating total time and mapping to time class
-Chess.com uses an average game length of 40 moves per player to estimate total time per side:
+Using JSON/PGN time control when available, Chess.com heuristics estimate total time per side assuming 40 moves per player:
 
 EstimatedMinutes = (base_seconds + increment_seconds × 40) ÷ 60
 
@@ -44,10 +44,8 @@ Examples (Live):
 ### Live vs Daily
 - Live: real-time play where both clocks run during the session; encompasses Bullet, Blitz, Rapid.
 - Daily: correspondence play with per-move allotments (e.g., `1/86400`), no live increment; players may move hours/days apart.
-- Sources:
-  - JSON: `time_control` string encodes live increments with `+` and daily with `/`.
-  - Callback: `isLiveGame` indicates live vs daily explicitly.
-  - Mapping: if `isLiveGame` is true → one of Bullet/Blitz/Rapid; if false → Daily.
+- Primary signals without callback: JSON/PGN `TimeControl` with `+` (live) vs `/` (daily). Bare seconds are live.
+- If callback is present, `isLiveGame` confirms live vs daily explicitly.
 
 ### Clock mechanics summary
 - Each player has an independent clock; only the side to move is ticking.

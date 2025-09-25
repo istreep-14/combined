@@ -4,7 +4,6 @@
 
 var HUB = { name: 'Games' };
 var SPOKES = {
-  analysis: { name: 'AnalysisStaging' },
   callback: { name: 'E_Callback' },
   all:      { name: 'AllFields' },
   meta:     { name: 'Meta' }
@@ -17,18 +16,15 @@ var STATE = {
 
 function setupProject() {
   var hubSS = SpreadsheetApp.create('Hub - Games');
-  var analysisSS = SpreadsheetApp.create('Spoke - Analysis');
-  var allSS = SpreadsheetApp.create('Spoke - AllFields');
+  var allSS = SpreadsheetApp.create('AllGames');
   var metaSS = allSS; // Meta lives in the same AllFields spreadsheet
 
-  var hubSheet = getOrCreateSheet(hubSS, HUB.name, getHeaderFor('hub'));
-  var analysisSheet = getOrCreateSheet(analysisSS, SPOKES.analysis.name, getHeaderFor('spoke:analysis'));
+  var hubSheet = getOrCreateSheet(hubSS, HUB.name, getHeaderFor('allgames_core'));
   var callbackSheet = getOrCreateSheet(allSS, SPOKES.callback.name, ['url','queued_at','applied_at','reason'].concat(getHeaderFor('spoke:callback')));
   var allSheet = getOrCreateSheet(allSS, SPOKES.all.name, getHeaderFor('all'));
   var metaSheet = getOrCreateSheet(metaSS, SPOKES.meta.name, getMetaHeader());
 
   PropertiesService.getScriptProperties().setProperty('HUB_ID', hubSS.getId());
-  PropertiesService.getScriptProperties().setProperty('SPOKE_ANALYSIS_ID', analysisSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_ALL_ID', allSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_META_ID', metaSS.getId());
 
@@ -36,7 +32,7 @@ function setupProject() {
   getOrCreateSheet(hubSS, 'ExportQueue', ['url','target','reason','queued_at']);
 
   return {
-    hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: allSS.getUrl(), allUrl: allSS.getUrl(), metaUrl: metaSS.getUrl()
+    hubUrl: hubSS.getUrl(), callbackUrl: allSS.getUrl(), allUrl: allSS.getUrl(), metaUrl: metaSS.getUrl()
   };
 }
 
@@ -46,7 +42,7 @@ function getHubSS() {
 }
 
 function getSpokeSS(kind) {
-  var key = (kind === 'analysis') ? 'SPOKE_ANALYSIS_ID' : (kind === 'all' ? 'SPOKE_ALL_ID' : 'SPOKE_ALL_ID');
+  var key = (kind === 'all' ? 'SPOKE_ALL_ID' : 'SPOKE_ALL_ID');
   if (kind === 'meta') key = 'SPOKE_META_ID';
   var id = PropertiesService.getScriptProperties().getProperty(key);
   return SpreadsheetApp.openById(id);
@@ -232,7 +228,6 @@ function exportNewGames(username, year, month) {
   if (res.status !== 'ok' || !res.json) return { written:0 };
   var flat = flattenArchiveToRows(username, res.json, year, month, res.etag || '', res.lastModified || '');
   writeHub(flat.hub);
-  writeSpoke('analysis', flat.analysis);
   // Build and write the single wide AllFields row set from registry union
   var allRows = buildAllFieldsRows(flat, res.etag || '', res.lastModified || '', year, month);
   writeSpoke('all', allRows);
@@ -251,7 +246,7 @@ function buildAllFieldsRows(flat, etag, lastMod, year, month) {
   var mapAnalysis = {};
   var idx = {};
   // Build maps
-  var hubHeader = getHeaderFor('hub');
+  var hubHeader = getHeaderFor('allgames_core');
   for (var i=0;i<flat.hub.length;i++) {
     var row = flat.hub[i]; var url = row[0]; var obj = {}; for (var c=0;c<hubHeader.length;c++) obj[hubHeader[c]] = row[c]; mapHub[url]=obj;
   }

@@ -5,7 +5,8 @@
 var HUB = { name: 'Games' };
 var SPOKES = {
   analysis: { name: 'AnalysisStaging' },
-  callback: { name: 'CallbackRaw' }
+  callback: { name: 'CallbackRaw' },
+  all:      { name: 'AllFields' }
 };
 
 var STATE = {
@@ -17,20 +18,23 @@ function setupProject() {
   var hubSS = SpreadsheetApp.create('Hub - Games');
   var analysisSS = SpreadsheetApp.create('Spoke - Analysis');
   var callbackSS = SpreadsheetApp.create('Spoke - Callback');
+  var allSS = SpreadsheetApp.create('Spoke - AllFields');
 
   var hubSheet = getOrCreateSheet(hubSS, HUB.name, getHeaderFor('hub'));
   var analysisSheet = getOrCreateSheet(analysisSS, SPOKES.analysis.name, getHeaderFor('spoke:analysis'));
   var callbackSheet = getOrCreateSheet(callbackSS, SPOKES.callback.name, getHeaderFor('spoke:callback'));
+  var allSheet = getOrCreateSheet(allSS, SPOKES.all.name, getHeaderFor('all'));
 
   PropertiesService.getScriptProperties().setProperty('HUB_ID', hubSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_ANALYSIS_ID', analysisSS.getId());
   PropertiesService.getScriptProperties().setProperty('SPOKE_CALLBACK_ID', callbackSS.getId());
+  PropertiesService.getScriptProperties().setProperty('SPOKE_ALL_ID', allSS.getId());
 
   // Create Hub ExportQueue
   getOrCreateSheet(hubSS, 'ExportQueue', ['url','target','reason','queued_at']);
 
   return {
-    hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: callbackSS.getUrl()
+    hubUrl: hubSS.getUrl(), analysisUrl: analysisSS.getUrl(), callbackUrl: callbackSS.getUrl(), allUrl: allSS.getUrl()
   };
 }
 
@@ -40,7 +44,7 @@ function getHubSS() {
 }
 
 function getSpokeSS(kind) {
-  var key = (kind === 'analysis') ? 'SPOKE_ANALYSIS_ID' : 'SPOKE_CALLBACK_ID';
+  var key = (kind === 'analysis') ? 'SPOKE_ANALYSIS_ID' : (kind === 'all' ? 'SPOKE_ALL_ID' : 'SPOKE_CALLBACK_ID');
   var id = PropertiesService.getScriptProperties().getProperty(key);
   return SpreadsheetApp.openById(id);
 }
@@ -214,7 +218,9 @@ function writeHub(rows) {
 }
 
 function writeSpoke(kind, rows) {
-  var ss = getSpokeSS(kind); var sheetName = SPOKES[kind].name; var sh = getOrCreateSheet(ss, sheetName, getHeaderFor('spoke:'+kind));
+  var ss = getSpokeSS(kind);
+  var headerKey = (kind==='all') ? 'all' : ('spoke:'+kind);
+  var sheetName = SPOKES[kind].name; var sh = getOrCreateSheet(ss, sheetName, getHeaderFor(headerKey));
   if (rows && rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
 }
 
@@ -224,10 +230,42 @@ function exportNewGames(username, year, month) {
   var flat = flattenArchiveToRows(username, res.json, year, month, res.etag || '', res.lastModified || '');
   writeHub(flat.hub);
   writeSpoke('analysis', flat.analysis);
+  // Build and write the single wide AllFields row set from registry union
+  var allRows = buildAllFieldsRows(flat, res.etag || '', res.lastModified || '', year, month);
+  writeSpoke('all', allRows);
   // Queue exports for analysis and callback
   var urls = flat.hub.map(function(r){ return r[0]; });
   queueExports(urls, ['analysis','callback'], 'new');
   return { written: flat.hub.length };
+}
+
+function buildAllFieldsRows(flat, etag, lastMod, year, month) {
+  var header = getHeaderFor('all');
+  var mapHub = {}; // url -> hub row values by name
+  var mapAnalysis = {};
+  var idx = {};
+  // Build maps
+  var hubHeader = getHeaderFor('hub');
+  for (var i=0;i<flat.hub.length;i++) {
+    var row = flat.hub[i]; var url = row[0]; var obj = {}; for (var c=0;c<hubHeader.length;c++) obj[hubHeader[c]] = row[c]; mapHub[url]=obj;
+  }
+  var anHeader = getHeaderFor('spoke:analysis');
+  for (var j=0;j<flat.analysis.length;j++) {
+    var r2 = flat.analysis[j]; var url2 = r2[0]; var o2 = {}; for (var c2=0;c2<anHeader.length;c2++) o2[anHeader[c2]] = r2[c2]; mapAnalysis[url2]=o2;
+  }
+  var out = [];
+  Object.keys(mapHub).forEach(function(url){
+    var o = {}; var h = mapHub[url]||{}; var a = mapAnalysis[url]||{};
+    // ensure some meta in AllFields
+    h.archive_etag = etag; h.archive_last_modified = lastMod;
+    h.archive_year = String(year); h.archive_month = (month<10?'0':'')+String(month);
+    for (var k=0;k<header.length;k++) {
+      var key = header[k]; o[key] = (h[key]!==undefined ? h[key] : (a[key]!==undefined ? a[key] : ''));
+    }
+    var row = header.map(function(k){ return o[k]; });
+    out.push(row);
+  });
+  return out;
 }
 
 function enqueueForCallback(urls) {
@@ -290,9 +328,11 @@ function processCallbackBatch(maxN) {
 function queueExports(urls, targets, reason) {
   var hub = getHubSS(); var q = getOrCreateSheet(hub, 'ExportQueue', ['url','target','reason','queued_at']);
   var rows = [];
-  for (var i=0;i<urls.length;i++) {
-    for (var j=0;j<targets.length;j++) {
-      rows.push([urls[i], targets[j], reason||'', new Date()]);
+  var safeUrls = (urls||[]).filter(function(u){ return !!u; });
+  var safeTargets = (targets||[]).filter(function(t){ return !!t; });
+  for (var i=0;i<safeUrls.length;i++) {
+    for (var j=0;j<safeTargets.length;j++) {
+      rows.push([safeUrls[i], safeTargets[j], reason||'', new Date()]);
     }
   }
   if (rows.length) q.getRange(q.getLastRow()+1, 1, rows.length, 4).setValues(rows);

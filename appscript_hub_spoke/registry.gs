@@ -86,12 +86,31 @@ var FIELD_REGISTRY = (function(){
 })();
 
 function getHeaderFor(target) {
-  var fields = FIELD_REGISTRY.filter(function(f){
-    if (target === 'hub') return f.write_to === 'hub';
-    if (target === 'spoke:analysis') return f.write_to === 'spoke:analysis';
-    if (target === 'spoke:callback') return f.write_to === 'spoke:callback';
-    return false;
-  }).map(function(f){ return f.name; });
-  return fields;
+  var arr;
+  if (target === 'hub') {
+    arr = FIELD_REGISTRY.filter(function(f){ return f.write_to==='hub'; });
+  } else if (target === 'spoke:analysis') {
+    arr = FIELD_REGISTRY.filter(function(f){ return f.write_to==='spoke:analysis'; });
+  } else if (target === 'spoke:callback') {
+    arr = FIELD_REGISTRY.filter(function(f){ return f.write_to==='spoke:callback'; });
+  } else if (target === 'all') {
+    // union: hub + analysis + callback (unique names)
+    var names = {};
+    var out = [];
+    ['hub','spoke:analysis','spoke:callback'].forEach(function(t){
+      FIELD_REGISTRY.forEach(function(f){
+        if ((t==='hub' && f.write_to==='hub') || (t!=='hub' && f.write_to===t)) {
+          if (!names[f.name]) { names[f.name]=true; out.push(f.name); }
+        }
+      });
+    });
+    // Ensure url is first
+    out = out.filter(function(n){ return n!=='url'; });
+    out.unshift('url');
+    return out;
+  } else {
+    arr = [];
+  }
+  return arr.map(function(f){ return f.name; });
 }
 

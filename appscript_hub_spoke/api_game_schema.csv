@@ -2,7 +2,7 @@ json_path,type,description
 games[],array,List of game objects for the archive month
 games[].url,string,URL of this game
 games[].pgn,string,Final PGN text
-games[].time_control,string,PGN-compliant time control (e.g. "60" "300+2" "1/86400")
+games[].time_control,string,PGN-compliant time control (e.g. ""60"" ""300+2"" ""1/86400"")
 games[].end_time,number,Unix epoch seconds when the game ended
 games[].rated,boolean,Whether the game is rated
 games[].accuracies.white,number,White accuracy percentage if computed

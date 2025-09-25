@@ -351,7 +351,7 @@ function processCallbackBatch(maxN) {
       var json = JSON.parse(resp.getContentText()||'{}');
       var g = (json && json.game) || {}; var players = json && json.players || {};
       var pgn = (json && json.pgnHeaders) || {};
-      var myColor = resolveMyColorFromCallback(pgn.White, pgn.Black);
+      var myColor = resolveMyColorFromCallback(pgn.White, pgn.Black) || inferMyColorForCallback(url, pgn.White, pgn.Black);
       // pick exact deltas by color
       var myDelta = '';
       var oppDelta = '';
@@ -415,6 +415,31 @@ function resolveMyColorFromCallback(pgnWhite, pgnBlack) {
   var b = String(pgnBlack||'').toLowerCase();
   if (me && w===me) return 'white';
   if (me && b===me) return 'black';
+  return '';
+}
+
+// Fallback when configured username might differ in case or isn't set yet.
+// We try to infer from AllFields row for the given URL; if it exists we compare `my_username` to PGN names.
+function inferMyColorForCallback(url, pgnWhite, pgnBlack) {
+  try {
+    var allSS = getSpokeSS('all');
+    var allSheet = getOrCreateSheet(allSS, SPOKES.all.name, getHeaderFor('all'));
+    var last = allSheet.getLastRow(); if (last < 2) return '';
+    var header = allSheet.getRange(1,1,1,allSheet.getLastColumn()).getValues()[0] || [];
+    function idx(n){ for (var i=0;i<header.length;i++) if (String(header[i])===n) return i; return -1; }
+    var iUrl = idx('url'); var iMyUser = idx('my_username');
+    var vals = allSheet.getRange(2,1,last-1,allSheet.getLastColumn()).getValues();
+    for (var r=0;r<vals.length;r++) {
+      if (String(vals[r][iUrl]) === String(url)) {
+        var myUser = String(vals[r][iMyUser]||'').toLowerCase();
+        var w = String(pgnWhite||'').toLowerCase();
+        var b = String(pgnBlack||'').toLowerCase();
+        if (myUser && myUser === w) return 'white';
+        if (myUser && myUser === b) return 'black';
+        break;
+      }
+    }
+  } catch (e) {}
   return '';
 }
 

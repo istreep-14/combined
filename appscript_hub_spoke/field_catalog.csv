@@ -1,0 +1,79 @@
+field_name,type,source,source_path_or_rule,calculation_or_policy,target_sheets,description
+url,string,archive_json,game.url,,AllFields|Hub|Core|E_Callback,Canonical game URL primary key
+rated,boolean,archive_json,game.rated,,AllFields|Hub,Rated flag
+time_class,string,archive_json,game.time_class,"normalize lowercase (bullet|blitz|rapid|daily)",AllFields|Hub,Normalized time class
+rules,string,archive_json,game.rules,"normalize lowercase",AllFields|Hub,Game rules/variant (chess|chess960|bughouse|...)
+format,string,derived,"deriveFormatSpec(rules,time_class)","if rules=chess → time_class; if chess960 → live960 for bullet/blitz/rapid, daily960 for daily; if rules ∈ {bughouse,crazyhouse,kingofthehill,threecheck} → rules; else fallback rules or time_class",AllFields|Hub|Core,Canonical format bucket used for ratings
+end_time_epoch,number,archive_json,game.end_time,,AllFields|Hub,Epoch seconds end
+start_time_local,string,derived,PGN UTCDate/UTCTime,"from UTCDate+UTCTime in project timezone",AllFields|Hub,Local start datetime
+end_time_local,string,derived,end_time_epoch,"format end_time_epoch in project timezone",AllFields|Hub,Local end datetime
+date,string,derived,end_time_local,"yyyy-MM-dd",AllFields|Hub|Core,Local date from end_time_local
+duration_seconds,number,derived,"end_time_epoch - start_time_epoch","if either missing blank",AllFields|Hub,Duration seconds
+time_control,string,archive_json,game.time_control,,AllFields|Hub,Raw PGN-style time control
+base_time,number,derived,parseTimeControl(tc).base,,AllFields|Hub,Base time seconds
+increment,number,derived,parseTimeControl(tc).inc,,AllFields|Hub,Increment seconds
+correspondence_time,number,derived,parseTimeControl(tc).corr,,AllFields|Hub,Daily seconds per move
+my_username,string,archive_json,white/black.username,"aligned to configured USERNAME",AllFields|Hub,My username selected by identity
+my_color,string,derived,,"white if my_username==White else black if ==Black",AllFields|Hub,My color
+my_rating_end,number,archive_json,player.rating,"player chosen by my_color",AllFields|Hub|Core,Post-game rating (mine)
+my_outcome,string,derived,player.result,"map raw result to win|loss|draw",AllFields|Hub,My normalized outcome
+opp_username,string,archive_json,opponent.username,,AllFields|Hub,Opponent username
+opp_color,string,derived,,Inverse of my_color,AllFields|Hub,Opponent color
+opp_rating_end,number,archive_json,opponent.rating,,AllFields|Hub|Core,Post-game rating (opponent)
+opp_outcome,string,derived,opponent.result,"map raw result to win|loss|draw",AllFields|Hub,Opponent normalized outcome
+end_reason,string,derived,,"loser raw result; on draw use draw code",AllFields|Hub,Termination policy field
+eco_code,string,pgn_header,ECO,,AllFields|Analysis,ECO code
+eco_url,string,pgn_header,ECOUrl,,AllFields|Analysis,ECO URL
+pgn_moves,text,pgn_body,moves,"content after PGN headers",AllFields|Analysis,PGN movetext
+tcn,string,archive_json,game.tcn,,AllFields|Analysis,TCN if provided
+initial_setup,string,archive_json,game.initial_setup,,AllFields|Analysis,Initial setup FEN for variants
+fen,string,archive_json,game.fen,,AllFields|Analysis,Final FEN
+accuracies_white,number,archive_json,game.accuracies.white,,AllFields|Analysis,Chess.com analysis accuracy (white)
+accuracies_black,number,archive_json,game.accuracies.black,,AllFields|Analysis,Chess.com analysis accuracy (black)
+tournament_url,string,archive_json,game.tournament,,AllFields|Analysis,Tournament link
+match_url,string,archive_json,game.match,,AllFields|Analysis,Match link
+white_result_raw,string,archive_json,game.white.result,,AllFields|Analysis,Raw result from source (white)
+black_result_raw,string,archive_json,game.black.result,,AllFields|Analysis,Raw result from source (black)
+termination_raw,string,pgn_header,Termination,,AllFields|Analysis,PGN termination
+archive_year,string,derived,month key,from export call,AllFields|Hub,Year (YYYY)
+archive_month,string,derived,month key,zero-padded month (MM),AllFields|Hub,Month (MM)
+archive_etag,string,state,res.etag,from month fetch,AllFields|Hub,ETag returned by archive fetch
+archive_last_modified,string,state,res.lastModified,from month fetch,AllFields|Hub,Last-Modified header
+archive_sig,string,derived,hash(minimal archive fields),simpleHash helper,AllFields|Hub,Hash to detect structural changes
+pgn_sig,string,derived,hash(PGN headers/moves),simpleHash helper,AllFields|Hub,PGN hash for reference
+schema_version,string,state,STATE.SCHEMA_VERSION,const,AllFields|Hub,Schema version
+ingest_version,string,state,STATE.INGEST_VERSION,const,AllFields|Hub,Pipeline version
+last_ingested_at,date,state,now(),timestamp at write,AllFields|Hub,Ingested at
+last_rechecked_at,date,state,now() on recheck,,AllFields|Hub,Rechecked at (optional)
+enrichment_status,string,state,none|queued|partial|complete|dirty,state machine,AllFields|Hub,Enrichment status
+enrichment_targets,string,state,csv targets,list of planned enrichments,AllFields|Hub,Enrichment targets
+last_enrichment_applied_at,date,state,when a target finishes,,AllFields|Hub,Last enrichment applied at
+last_enrichment_reason,string,state,reason code,,AllFields|Hub,Why enrichment ran
+notes,string,state,freeform,,AllFields|Hub,Freeform notes
+my_rating_change,number,callback_json,game.ratingChange or ratingChangeWhite/Black,"by myColor; fallback game.ratingChange",E_Callback|Core(cb),Exact rating delta (me)
+opp_rating_change,number,callback_json,game.ratingChange or ratingChangeWhite/Black,"opposite color; fallback negative of ratingChange",E_Callback|Core(cb),Exact rating delta (opponent)
+my_pregame_rating,number,callback_json,players.(top/bottom).rating,"pick block by myColor; fallback PGN WhiteElo/BlackElo",E_Callback|Core(cb),Pregame rating (me)
+opp_pregame_rating,number,callback_json,players.(top/bottom).rating,"pick block by oppColor; fallback PGN WhiteElo/BlackElo",E_Callback|Core(cb),Pregame rating (opponent)
+result_message,string,callback_json,game.resultMessage,,E_Callback,Human-readable result
+ply_count,number,callback_json,game.plyCount,,E_Callback|Core(cb),Ply count
+base_time1,number,callback_json,game.baseTime1,,E_Callback,Callback base time
+time_increment1,number,callback_json,game.timeIncrement1,,E_Callback,Callback increment
+move_timestamps_ds,text,callback_json,game.moveTimestamps,"store as string with leading ' to preserve",E_Callback|Core(cb),Dense move timestamps string
+my_country,string,callback_json,players.(top/bottom).countryName,by myColor,E_Callback,My country
+my_membership,string,callback_json,players.(top/bottom).membershipCode,by myColor,E_Callback,My membership
+my_default_tab,string,callback_json,players.(top/bottom).defaultTab,by myColor,E_Callback,My default tab
+my_post_move_action,string,callback_json,players.(top/bottom).postMoveAction,by myColor,E_Callback,My post move action
+opp_country,string,callback_json,players.(top/bottom).countryName,by oppColor,E_Callback,Opponent country
+opp_membership,string,callback_json,players.(top/bottom).membershipCode,by oppColor,E_Callback,Opponent membership
+opp_default_tab,string,callback_json,players.(top/bottom).defaultTab,by oppColor,E_Callback,Opponent default tab
+opp_post_move_action,string,callback_json,players.(top/bottom).postMoveAction,by oppColor,E_Callback,Opponent post move action
+my_pregame_last,number,materializer_state,ScriptProperties(LAST_RATING_FMT_<FORMAT>),previous post-game rating for same format,Core,Last-based pregame (me)
+my_delta_last,number,materializer_state,my_rating_end - my_pregame_last,,Core,Last-based delta (me)
+opp_pregame_last,number,materializer_state,opp_rating_end - (-my_delta_last),"if either missing blank",Core,Last-based pregame (opponent)
+opp_delta_last,number,materializer_state,-my_delta_last,,Core,Last-based delta (opponent)
+my_pregame_cb,number,callback_overlay,my_pregame_rating,,Core,Callback pregame (me)
+my_delta_cb,number,callback_overlay,my_rating_change,,Core,Callback delta (me)
+opp_pregame_cb,number,callback_overlay,opp_pregame_rating,,Core,Callback pregame (opponent)
+opp_delta_cb,number,callback_overlay,opp_rating_change,,Core,Callback delta (opponent)
+my_delta,number,final_selection,"my_delta_cb if non-zero else my_delta_last",,Core,Final delta (me)
+opp_delta,number,final_selection,"opp_delta_cb if non-zero else opp_delta_last",,Core,Final delta (opponent)

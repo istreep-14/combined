@@ -1,0 +1,4 @@
+game_url,site,round,opening_name,eco,termination,my_rating_before,my_rating_after,my_delta_exact,opp_username,opp_rating_before,opp_rating_after,opp_delta_exact,review_score,notes
+https://www.chess.com/game/live/7000000001,chess.com,,-,C50,Normal,1848,1855,7,Opponent1,1775,1780,5,0.62,confirmed via PGN
+https://www.chess.com/game/live/7000000002,chess.com,,-,A00,Time forfeit,1855,1848,-7,Opponent2,1907,1900,-7,0.10,awaiting fair play check
+https://www.chess.com/game/live/7000000003,chess.com,,-,D02,Insufficient material,1848,1848,0,Opponent3,1830,1830,0,0.50,drawn endgame

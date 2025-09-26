@@ -1,0 +1,4 @@
+game_url,end_time_utc,local_date,format,time_control,variant,duration_secs,result,my_color,my_rating_after_est,opp_rating_after_est,my_delta_est,opp_delta_est,enrichment_status,notes
+https://www.chess.com/game/live/7000000001,2025-09-26T10:12:30Z,2025-09-26,blitz,3|2,standard,420,win,white,1855,1780,7,-7,ENRICH_PENDING,
+https://www.chess.com/game/live/7000000002,2025-09-26T11:05:02Z,2025-09-26,bullet,1|0,standard,120,loss,black,1848,1900,-7,7,ENRICH_PENDING,
+https://www.chess.com/game/live/7000000003,2025-09-26T11:55:40Z,2025-09-26,rapid,10|0,standard,900,draw,white,1848,1830,0,0,ENRICH_PENDING,

@@ -1,0 +1,5 @@
+event_ts_utc,format,source,game_url,rating_after,delta,confidence,notes
+2025-09-26T10:12:30Z,blitz,GAME,https://www.chess.com/game/live/7000000001,1855,7,ESTIMATED,
+2025-09-26T11:05:02Z,bullet,GAME,https://www.chess.com/game/live/7000000002,1848,-7,ESTIMATED,
+2025-09-26T11:55:40Z,rapid,GAME,https://www.chess.com/game/live/7000000003,1848,0,ESTIMATED,
+2025-09-20T08:00:00Z,blitz,ADJUSTMENT,,1840,15,CONFIRMED,opponent fair play adjustment

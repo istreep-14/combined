@@ -1,0 +1,11 @@
+date_local,type,format,wins,losses,draws,games,duration_secs,score_str,score_float,rating_value,rating_change_vs_prev_day,source
+2025-09-25,TOTAL,,6,3,1,10,3600,6.5/10,6.5,5530,25,EOD
+2025-09-25,FORMAT,bullet,2,2,0,4,600,2/4,2.0,1820,10,EOD
+2025-09-25,FORMAT,blitz,3,1,1,5,1800,3.5/5,3.5,1850,12,EOD
+2025-09-25,FORMAT,rapid,1,0,0,1,1200,1/1,1.0,1860,3,EOD
+2025-09-25,FORMAT,daily,0,0,0,0,0,0/0,0.0,1700,0,EOD
+2025-09-26,TOTAL,,1,1,1,3,1440,1.5/3,1.5,5551,21,CURRENT
+2025-09-26,FORMAT,bullet,0,1,0,1,120,0/1,0.0,1848,28,CURRENT
+2025-09-26,FORMAT,blitz,1,0,0,1,420,1/1,1.0,1855,5,CURRENT
+2025-09-26,FORMAT,rapid,0,0,1,1,900,0.5/1,0.5,1848,-12,CURRENT
+2025-09-26,FORMAT,daily,0,0,0,0,0,0/0,0.0,1700,0,CURRENT
